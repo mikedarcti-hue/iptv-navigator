@@ -139,7 +139,9 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         mpegtsRef.current = player;
         player.attachMediaElement(video);
         player.load();
-        player.play().catch(() => failWithFallback("Não foi possível iniciar o stream MPEG-TS"));
+        Promise.resolve(player.play()).catch(() => {
+          failWithFallback("Não foi possível iniciar o stream MPEG-TS");
+        });
         player.on(mpegts.Events.ERROR, () => {
           failWithFallback("O stream MPEG-TS falhou durante a reprodução");
         });
