@@ -5,6 +5,7 @@ export interface Channel {
   group: string;
   url: string;
   epgNow?: string;
+  streamCandidates?: string[];
 }
 
 export interface VodItem {
