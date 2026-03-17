@@ -1,24 +1,21 @@
-import { motion } from "framer-motion";
 import CategoryCard from "./CategoryCard";
 import VodCard from "./VodCard";
 import ChannelRow from "./ChannelRow";
-import { categories, movies, series, liveChannels as mockChannels } from "@/lib/mock-data";
-import { useChannels } from "@/hooks/use-channels";
-import type { Channel } from "@/lib/mock-data";
+import type { Channel, VodItem } from "@/lib/mock-data";
 
 interface DashboardViewProps {
   onNavigate: (section: string) => void;
   onPlayChannel?: (channel: Channel) => void;
+  liveChannels: Channel[];
+  movieItems: VodItem[];
+  seriesItems: VodItem[];
 }
 
-const DashboardView = ({ onNavigate, onPlayChannel }: DashboardViewProps) => {
-  const { channels: storedChannels } = useChannels();
-  const liveChannels = storedChannels.length > 0 ? storedChannels : mockChannels;
-
+const DashboardView = ({ onNavigate, onPlayChannel, liveChannels, movieItems, seriesItems }: DashboardViewProps) => {
   const dynamicCategories = [
     { id: "live", label: "Canais ao Vivo", count: liveChannels.length },
-    { id: "movies", label: "Filmes", count: movies.length },
-    { id: "series", label: "Séries", count: series.length },
+    { id: "movies", label: "Filmes", count: movieItems.length },
+    { id: "series", label: "Séries", count: seriesItems.length },
   ];
 
   return (
@@ -26,46 +23,58 @@ const DashboardView = ({ onNavigate, onPlayChannel }: DashboardViewProps) => {
       <section>
         <h2 className="text-lg font-bold text-foreground mb-4 tracking-tight">Categorias</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {dynamicCategories.map((cat, i) => (
-            <CategoryCard key={cat.id} {...cat} index={i} onClick={() => onNavigate(cat.id)} />
+          {dynamicCategories.map((category, index) => (
+            <CategoryCard key={category.id} {...category} index={index} onClick={() => onNavigate(category.id)} />
           ))}
         </div>
       </section>
 
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-foreground tracking-tight">Filmes em Destaque</h2>
+          <h2 className="text-lg font-bold text-foreground tracking-tight">Filmes</h2>
           <button onClick={() => onNavigate("movies")} className="text-xs font-medium text-primary hover:underline">Ver todos</button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {movies.slice(0, 6).map((movie, i) => (
-            <VodCard key={movie.id} item={movie} index={i} />
-          ))}
-        </div>
+        {movieItems.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            {movieItems.slice(0, 6).map((movie, index) => (
+              <VodCard key={movie.id} item={movie} index={index} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Nenhum filme encontrado na lista carregada.</p>
+        )}
       </section>
 
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-foreground tracking-tight">Séries Populares</h2>
+          <h2 className="text-lg font-bold text-foreground tracking-tight">Séries</h2>
           <button onClick={() => onNavigate("series")} className="text-xs font-medium text-primary hover:underline">Ver todos</button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {series.slice(0, 6).map((s, i) => (
-            <VodCard key={s.id} item={s} index={i} />
-          ))}
-        </div>
+        {seriesItems.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            {seriesItems.slice(0, 6).map((seriesItem, index) => (
+              <VodCard key={seriesItem.id} item={seriesItem} index={index} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Nenhuma série encontrada na lista carregada.</p>
+        )}
       </section>
 
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-foreground tracking-tight">Ao Vivo Agora</h2>
+          <h2 className="text-lg font-bold text-foreground tracking-tight">Ao Vivo</h2>
           <button onClick={() => onNavigate("live")} className="text-xs font-medium text-primary hover:underline">Ver todos</button>
         </div>
-        <div className="space-y-1">
-          {liveChannels.slice(0, 5).map((ch, i) => (
-            <ChannelRow key={ch.id} channel={ch} index={i} onPlay={() => onPlayChannel?.(ch)} />
-          ))}
-        </div>
+        {liveChannels.length > 0 ? (
+          <div className="space-y-1">
+            {liveChannels.slice(0, 5).map((channel, index) => (
+              <ChannelRow key={channel.id} channel={channel} index={index} onPlay={() => onPlayChannel?.(channel)} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Nenhum canal ao vivo encontrado na lista carregada.</p>
+        )}
       </section>
     </div>
   );
