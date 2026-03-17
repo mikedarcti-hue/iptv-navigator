@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Globe, Database, Shield, Info, ChevronRight, Loader2, Check, X, Wifi, WifiOff } from "lucide-react";
+import { Globe, Database, Shield, Info, ChevronRight, Loader2, Wifi, WifiOff, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { setStoredChannels } from "@/lib/channel-store";
 
 type ConnectionType = "m3u" | "xtream";
 type ConnectionStatus = "idle" | "testing" | "success" | "error";
@@ -35,6 +37,7 @@ const SettingsView = () => {
 
   const [tempConfig, setTempConfig] = useState<ServerConfig>(config);
   const [status, setStatus] = useState<ConnectionStatus>("idle");
+  const [syncing, setSyncing] = useState(false);
   const [bufferSize, setBufferSize] = useState(() => localStorage.getItem("obsidian_buffer") || "50");
   const [decoder, setDecoder] = useState(() => localStorage.getItem("obsidian_decoder") || "hardware");
 
@@ -48,49 +51,75 @@ const SettingsView = () => {
 
   const testConnection = async () => {
     setStatus("testing");
-    
     try {
-      let testUrl = "";
-      if (tempConfig.type === "m3u") {
-        if (!tempConfig.m3uUrl.trim()) throw new Error("URL vazia");
-        testUrl = tempConfig.m3uUrl.trim();
-      } else {
-        if (!tempConfig.xtreamUrl.trim() || !tempConfig.xtreamUser.trim() || !tempConfig.xtreamPass.trim()) {
-          throw new Error("Preencha todos os campos");
-        }
-        const base = tempConfig.xtreamUrl.replace(/\/$/, "");
-        testUrl = `${base}/player_api.php?username=${encodeURIComponent(tempConfig.xtreamUser)}&password=${encodeURIComponent(tempConfig.xtreamPass)}`;
-      }
+      const body = tempConfig.type === "m3u"
+        ? { action: "test", type: "m3u", url: tempConfig.m3uUrl.trim() }
+        : { action: "test", type: "xtream", server: tempConfig.xtreamUrl.trim(), username: tempConfig.xtreamUser.trim(), password: tempConfig.xtreamPass.trim() };
 
-      // Attempt a fetch to test connectivity
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
-      
-      const res = await fetch(testUrl, { 
-        method: "HEAD", 
-        mode: "no-cors",
-        signal: controller.signal 
-      });
-      clearTimeout(timeout);
-      
-      // no-cors always returns opaque response, so reaching here means network is reachable
+      const { data, error } = await supabase.functions.invoke("iptv-proxy", { body });
+
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || "Falha na conexão");
+
       setStatus("success");
+      toast.success("Servidor acessível!");
     } catch (err: any) {
-      if (err.name === "AbortError") {
-        setStatus("error");
-        toast.error("Timeout: servidor não respondeu em 10 segundos");
-      } else {
-        setStatus("error");
-        toast.error(err.message || "Erro ao conectar ao servidor");
-      }
+      setStatus("error");
+      toast.error(err.message || "Erro ao conectar ao servidor");
     }
   };
 
-  const saveConfig = () => {
+  const saveAndSync = async () => {
     setConfig(tempConfig);
     localStorage.setItem("obsidian_server_config", JSON.stringify(tempConfig));
     setServerDialogOpen(false);
-    toast.success("Servidor configurado com sucesso!");
+    toast.success("Servidor configurado! Carregando canais...");
+
+    setSyncing(true);
+    try {
+      const body = tempConfig.type === "m3u"
+        ? { action: "fetch_m3u", url: tempConfig.m3uUrl.trim() }
+        : { action: "fetch_xtream", server: tempConfig.xtreamUrl.trim(), username: tempConfig.xtreamUser.trim(), password: tempConfig.xtreamPass.trim() };
+
+      const { data, error } = await supabase.functions.invoke("iptv-proxy", { body });
+
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || "Falha ao carregar canais");
+
+      setStoredChannels(data.channels || []);
+      window.dispatchEvent(new Event("channels-updated"));
+      toast.success(`${data.channels?.length || 0} canais carregados!`);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao carregar canais");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const syncChannels = async () => {
+    if (!isConfigured) {
+      toast.error("Configure o servidor primeiro");
+      return;
+    }
+    setSyncing(true);
+    try {
+      const body = config.type === "m3u"
+        ? { action: "fetch_m3u", url: config.m3uUrl.trim() }
+        : { action: "fetch_xtream", server: config.xtreamUrl.trim(), username: config.xtreamUser.trim(), password: config.xtreamPass.trim() };
+
+      const { data, error } = await supabase.functions.invoke("iptv-proxy", { body });
+
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || "Falha ao carregar");
+
+      setStoredChannels(data.channels || []);
+      window.dispatchEvent(new Event("channels-updated"));
+      toast.success(`${data.channels?.length || 0} canais atualizados!`);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao sincronizar");
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const saveBuffer = (val: string) => {
@@ -113,12 +142,20 @@ const SettingsView = () => {
     return `${config.xtreamUser}@${config.xtreamUrl.replace(/https?:\/\//, "").substring(0, 30)}`;
   };
 
+  const storedCount = (() => {
+    try {
+      const raw = localStorage.getItem("obsidian_channels");
+      return raw ? JSON.parse(raw).length : 0;
+    } catch { return 0; }
+  })();
+
   const settingsGroups = [
     {
       title: "Conexão",
       items: [
         { icon: Globe, label: "URL do Servidor", value: getServerValue(), action: true, onClick: handleOpenServer },
         { icon: Database, label: "Tipo de Playlist", value: config.type === "m3u" ? "M3U" : "Xtream Codes", action: true, onClick: () => setPlaylistDialogOpen(true) },
+        { icon: RefreshCw, label: "Sincronizar Canais", value: syncing ? "Carregando..." : `${storedCount} canais carregados`, action: true, onClick: syncChannels },
       ],
     },
     {
@@ -157,7 +194,7 @@ const SettingsView = () => {
                 className="flex items-center gap-4 p-4 hover:bg-surface-hover transition-colors cursor-pointer"
               >
                 <div className="w-10 h-10 rounded-lg bg-surface flex items-center justify-center shrink-0">
-                  <item.icon className="w-5 h-5 text-muted-foreground" />
+                  <item.icon className={`w-5 h-5 text-muted-foreground ${item.label === "Sincronizar Canais" && syncing ? "animate-spin" : ""}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground">{item.label}</p>
@@ -180,7 +217,6 @@ const SettingsView = () => {
             </DialogDescription>
           </DialogHeader>
 
-          {/* Type Toggle */}
           <div className="flex gap-2 p-1 rounded-lg bg-surface">
             <button
               onClick={() => setTempConfig({ ...tempConfig, type: "xtream" })}
@@ -248,7 +284,6 @@ const SettingsView = () => {
             )}
           </div>
 
-          {/* Status indicator */}
           {status !== "idle" && (
             <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${
               status === "testing" ? "bg-surface text-muted-foreground" :
@@ -275,7 +310,7 @@ const SettingsView = () => {
               Testar Conexão
             </button>
             <button
-              onClick={saveConfig}
+              onClick={saveAndSync}
               className="flex-1 py-2.5 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-all"
             >
               Salvar
