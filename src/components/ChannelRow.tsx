@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { Play } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Channel } from "@/lib/mock-data";
@@ -8,9 +9,10 @@ interface ChannelRowProps {
   onPlay?: () => void;
 }
 
-const ChannelRow = ({ channel, index, onPlay }: ChannelRowProps) => {
+const ChannelRow = forwardRef<HTMLDivElement, ChannelRowProps>(({ channel, index, onPlay }, ref) => {
   return (
     <motion.div
+      ref={ref}
       initial={{ opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.03, duration: 0.3 }}
@@ -19,7 +21,7 @@ const ChannelRow = ({ channel, index, onPlay }: ChannelRowProps) => {
     >
       <div className="w-12 h-12 rounded-lg bg-surface overflow-hidden shrink-0 card-shadow">
         {channel.logo ? (
-          <img src={channel.logo} alt={channel.name} className="w-full h-full object-cover" />
+          <img src={channel.logo} alt={channel.name} className="w-full h-full object-cover" loading="lazy" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-xs font-bold text-muted-foreground">
             {channel.name.substring(0, 2).toUpperCase()}
@@ -38,6 +40,8 @@ const ChannelRow = ({ channel, index, onPlay }: ChannelRowProps) => {
       </div>
     </motion.div>
   );
-};
+});
+
+ChannelRow.displayName = "ChannelRow";
 
 export default ChannelRow;
