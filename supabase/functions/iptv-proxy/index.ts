@@ -119,9 +119,10 @@ Deno.serve(async (req) => {
       const categories = categoryResponse.ok ? await categoryResponse.json() : [];
       const streams = streamResponse.ok ? await streamResponse.json() : [];
       const categoryMap = buildCategoryMap(categories);
+      const baseUrl = sanitizeBaseUrl(server);
 
       const movies = Array.isArray(streams)
-        ? streams.slice(0, 1800).map((stream: any, index: number) => buildVodItem(stream, index, categoryMap, "movie"))
+        ? streams.slice(0, 1800).map((stream: any, index: number) => buildVodItem(stream, index, categoryMap, "movie", baseUrl, username, password))
         : [];
 
       return json({ success: true, movies: sortByName(movies) });
