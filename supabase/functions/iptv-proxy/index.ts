@@ -143,9 +143,10 @@ Deno.serve(async (req) => {
       const categories = categoryResponse.ok ? await categoryResponse.json() : [];
       const series = seriesResponse.ok ? await seriesResponse.json() : [];
       const categoryMap = buildCategoryMap(categories);
+      const baseUrl = sanitizeBaseUrl(server);
 
       const mappedSeries = Array.isArray(series)
-        ? series.slice(0, 1800).map((item: any, index: number) => buildVodItem(item, index, categoryMap, "series"))
+        ? series.slice(0, 1800).map((item: any, index: number) => buildVodItem(item, index, categoryMap, "series", baseUrl, username, password))
         : [];
 
       return json({ success: true, series: sortByName(mappedSeries) });
