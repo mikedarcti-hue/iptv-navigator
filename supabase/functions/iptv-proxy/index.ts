@@ -21,6 +21,8 @@ type VodItem = {
   year: number;
   genre: string;
   type: "movie" | "series";
+  streamUrl?: string;
+  synopsis?: string;
 };
 
 Deno.serve(async (req) => {
