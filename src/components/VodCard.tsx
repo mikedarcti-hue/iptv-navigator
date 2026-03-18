@@ -10,7 +10,7 @@ interface VodCardProps {
   onClick?: (item: VodItem) => void;
 }
 
-const VodCard = ({ item, index }: VodCardProps) => {
+const VodCard = ({ item, index, onClick }: VodCardProps) => {
   const [isFav, setIsFav] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
 
@@ -20,6 +20,7 @@ const VodCard = ({ item, index }: VodCardProps) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.35 }}
       className="group relative cursor-pointer"
+      onClick={() => onClick?.(item)}
     >
       <div className="relative aspect-[2/3] rounded-xl overflow-hidden card-shadow bg-surface">
         {!imgLoaded && (
