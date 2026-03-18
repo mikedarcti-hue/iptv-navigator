@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 interface VodCardProps {
   item: VodItem;
   index: number;
+  onClick?: (item: VodItem) => void;
 }
 
 const VodCard = ({ item, index }: VodCardProps) => {
