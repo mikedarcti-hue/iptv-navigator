@@ -21,6 +21,8 @@ type VodItem = {
   year: number;
   genre: string;
   type: "movie" | "series";
+  streamUrl?: string;
+  synopsis?: string;
 };
 
 Deno.serve(async (req) => {
@@ -117,9 +119,10 @@ Deno.serve(async (req) => {
       const categories = categoryResponse.ok ? await categoryResponse.json() : [];
       const streams = streamResponse.ok ? await streamResponse.json() : [];
       const categoryMap = buildCategoryMap(categories);
+      const baseUrl = sanitizeBaseUrl(server);
 
       const movies = Array.isArray(streams)
-        ? streams.slice(0, 1800).map((stream: any, index: number) => buildVodItem(stream, index, categoryMap, "movie"))
+        ? streams.slice(0, 1800).map((stream: any, index: number) => buildVodItem(stream, index, categoryMap, "movie", baseUrl, username, password))
         : [];
 
       return json({ success: true, movies: sortByName(movies) });
@@ -140,9 +143,10 @@ Deno.serve(async (req) => {
       const categories = categoryResponse.ok ? await categoryResponse.json() : [];
       const series = seriesResponse.ok ? await seriesResponse.json() : [];
       const categoryMap = buildCategoryMap(categories);
+      const baseUrl = sanitizeBaseUrl(server);
 
       const mappedSeries = Array.isArray(series)
-        ? series.slice(0, 1800).map((item: any, index: number) => buildVodItem(item, index, categoryMap, "series"))
+        ? series.slice(0, 1800).map((item: any, index: number) => buildVodItem(item, index, categoryMap, "series", baseUrl, username, password))
         : [];
 
       return json({ success: true, series: sortByName(mappedSeries) });
@@ -221,19 +225,28 @@ function buildXtreamLiveChannel(stream: any, index: number, categoryMap: Record<
   };
 }
 
-function buildVodItem(item: any, index: number, categoryMap: Record<string, string>, type: "movie" | "series"): VodItem {
+function buildVodItem(item: any, index: number, categoryMap: Record<string, string>, type: "movie" | "series", baseUrl?: string, username?: string, password?: string): VodItem {
   const name = item?.name || `${type === "movie" ? "Filme" : "Série"} ${index + 1}`;
   const year = extractYear(item?.year || item?.releasedate || name);
   const ratingValue = Number.parseFloat(String(item?.rating_5based || item?.rating || 0));
+  const streamId = String(item?.stream_id ?? item?.series_id ?? index);
+
+  let streamUrl: string | undefined;
+  if (baseUrl && username && password && item?.stream_id) {
+    const ext = type === "movie" ? item?.container_extension || "mp4" : "m3u8";
+    streamUrl = `${baseUrl}/${type === "movie" ? "movie" : "series"}/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${streamId}.${ext}`;
+  }
 
   return {
-    id: String(item?.stream_id ?? item?.series_id ?? index),
+    id: streamId,
     name,
     poster: sanitizeImage(item?.stream_icon || item?.cover || item?.cover_big),
     rating: Number.isFinite(ratingValue) ? Number(ratingValue.toFixed(1)) : 0,
     year,
     genre: categoryMap[String(item?.category_id)] || "Sem categoria",
     type,
+    streamUrl,
+    synopsis: item?.plot || item?.description || undefined,
   };
 }
 
@@ -320,6 +333,7 @@ async function streamParseM3UCatalog(body: ReadableStream<Uint8Array>, limitPerS
             year: extractYear(pendingEntry.name),
             genre: pendingEntry.group,
             type: "movie",
+            streamUrl: line,
           });
         }
 
@@ -332,6 +346,7 @@ async function streamParseM3UCatalog(body: ReadableStream<Uint8Array>, limitPerS
             year: extractYear(pendingEntry.name),
             genre: pendingEntry.group,
             type: "series",
+            streamUrl: line,
           });
         }
 

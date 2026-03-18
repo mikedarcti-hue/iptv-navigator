@@ -1,26 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
 import VodCard from "./VodCard";
+import VodDetailView from "./VodDetailView";
 import SearchBar from "./SearchBar";
 import type { VodItem } from "@/lib/mock-data";
 
 interface VodGridViewProps {
   title: string;
   items: VodItem[];
+  onPlayVod?: (item: VodItem) => void;
 }
 
 const INITIAL_VISIBLE_ITEMS = 60;
 const LOAD_MORE_STEP = 60;
 
-const VodGridView = ({ title, items }: VodGridViewProps) => {
+const VodGridView = ({ title, items, onPlayVod }: VodGridViewProps) => {
   const [search, setSearch] = useState("");
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_ITEMS);
+  const [selectedItem, setSelectedItem] = useState<VodItem | null>(null);
 
   const genres = useMemo(() => [...new Set(items.map((item) => item.genre))].sort(), [items]);
 
   const filteredItems = useMemo(() => {
     const term = search.trim().toLowerCase();
-
     return items
       .filter((item) => {
         const matchesSearch = !term || item.name.toLowerCase().includes(term);
@@ -35,6 +37,16 @@ const VodGridView = ({ title, items }: VodGridViewProps) => {
   }, [items, search, selectedGenre]);
 
   const visibleItems = filteredItems.slice(0, visibleCount);
+
+  if (selectedItem) {
+    return (
+      <VodDetailView
+        item={selectedItem}
+        onBack={() => setSelectedItem(null)}
+        onPlay={(item) => onPlayVod?.(item)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -73,7 +85,7 @@ const VodGridView = ({ title, items }: VodGridViewProps) => {
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {visibleItems.map((item, index) => (
-              <VodCard key={item.id} item={item} index={index} />
+              <VodCard key={item.id} item={item} index={index} onClick={setSelectedItem} />
             ))}
           </div>
 
