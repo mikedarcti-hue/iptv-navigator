@@ -16,6 +16,12 @@ export interface VodItem {
   year: number;
   genre: string;
   type: "movie" | "series";
+  streamUrl?: string;
+  synopsis?: string;
+  trailerUrl?: string;
+  duration?: string;
+  cast?: string;
+  director?: string;
 }
 
 export const liveChannels: Channel[] = [
