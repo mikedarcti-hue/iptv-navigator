@@ -346,6 +346,7 @@ async function streamParseM3UCatalog(body: ReadableStream<Uint8Array>, limitPerS
             year: extractYear(pendingEntry.name),
             genre: pendingEntry.group,
             type: "series",
+            streamUrl: line,
           });
         }
 
