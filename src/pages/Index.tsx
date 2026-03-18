@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import SearchBar from "@/components/SearchBar";
 import DashboardView from "@/components/DashboardView";
