@@ -8,7 +8,7 @@ import FavoritesView from "@/components/FavoritesView";
 import SettingsView from "@/components/SettingsView";
 import PlayerView from "@/components/PlayerView";
 import { liveChannels as mockLiveChannels, movies as mockMovies, series as mockSeries } from "@/lib/mock-data";
-import type { Channel } from "@/lib/mock-data";
+import type { Channel, VodItem } from "@/lib/mock-data";
 import { useCatalog } from "@/hooks/use-catalog";
 
 const Index = () => {
@@ -20,6 +20,18 @@ const Index = () => {
   const liveItems = useMemo(() => (hasCustomCatalog ? catalog.live : mockLiveChannels), [catalog.live, hasCustomCatalog]);
   const movieItems = useMemo(() => (hasCustomCatalog ? catalog.movies : mockMovies), [catalog.movies, hasCustomCatalog]);
   const seriesItems = useMemo(() => (hasCustomCatalog ? catalog.series : mockSeries), [catalog.series, hasCustomCatalog]);
+
+  const handlePlayVod = (item: VodItem) => {
+    if (!item.streamUrl) return;
+    const asChannel: Channel = {
+      id: item.id,
+      name: item.name,
+      logo: item.poster,
+      group: item.genre,
+      url: item.streamUrl,
+    };
+    setPlayingChannel(asChannel);
+  };
 
   const renderContent = () => {
     if (playingChannel) {
@@ -40,9 +52,9 @@ const Index = () => {
       case "live":
         return <LiveView channels={liveItems} />;
       case "movies":
-        return <VodGridView title="Filmes" items={movieItems} />;
+        return <VodGridView title="Filmes" items={movieItems} onPlayVod={handlePlayVod} />;
       case "series":
-        return <VodGridView title="Séries" items={seriesItems} />;
+        return <VodGridView title="Séries" items={seriesItems} onPlayVod={handlePlayVod} />;
       case "favorites":
         return <FavoritesView />;
       case "settings":
