@@ -223,19 +223,28 @@ function buildXtreamLiveChannel(stream: any, index: number, categoryMap: Record<
   };
 }
 
-function buildVodItem(item: any, index: number, categoryMap: Record<string, string>, type: "movie" | "series"): VodItem {
+function buildVodItem(item: any, index: number, categoryMap: Record<string, string>, type: "movie" | "series", baseUrl?: string, username?: string, password?: string): VodItem {
   const name = item?.name || `${type === "movie" ? "Filme" : "Série"} ${index + 1}`;
   const year = extractYear(item?.year || item?.releasedate || name);
   const ratingValue = Number.parseFloat(String(item?.rating_5based || item?.rating || 0));
+  const streamId = String(item?.stream_id ?? item?.series_id ?? index);
+
+  let streamUrl: string | undefined;
+  if (baseUrl && username && password && item?.stream_id) {
+    const ext = type === "movie" ? item?.container_extension || "mp4" : "m3u8";
+    streamUrl = `${baseUrl}/${type === "movie" ? "movie" : "series"}/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${streamId}.${ext}`;
+  }
 
   return {
-    id: String(item?.stream_id ?? item?.series_id ?? index),
+    id: streamId,
     name,
     poster: sanitizeImage(item?.stream_icon || item?.cover || item?.cover_big),
     rating: Number.isFinite(ratingValue) ? Number(ratingValue.toFixed(1)) : 0,
     year,
     genre: categoryMap[String(item?.category_id)] || "Sem categoria",
     type,
+    streamUrl,
+    synopsis: item?.plot || item?.description || undefined,
   };
 }
 
