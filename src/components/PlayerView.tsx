@@ -21,9 +21,10 @@ import { Progress } from "@/components/ui/progress";
 interface PlayerViewProps {
   channel: Channel;
   onBack: () => void;
+  episodeKey?: string | null;
 }
 
-const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBack }, ref) => {
+const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBack, episodeKey }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
