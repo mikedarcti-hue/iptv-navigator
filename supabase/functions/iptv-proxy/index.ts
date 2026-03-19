@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, url, type, server, username, password } = await req.json();
+    const { action, url, type, server, username, password, seriesId } = await req.json();
 
     if (action === "test") {
       if (type === "m3u") {
