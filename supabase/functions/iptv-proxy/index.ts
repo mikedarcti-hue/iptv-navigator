@@ -311,6 +311,7 @@ function buildVodItem(item: any, index: number, categoryMap: Record<string, stri
     type,
     streamUrl,
     synopsis: item?.plot || item?.description || undefined,
+    seriesId: type === "series" ? String(item?.series_id ?? "") : undefined,
   };
 }
 
