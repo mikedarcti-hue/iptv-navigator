@@ -8,13 +8,14 @@ import FavoritesView from "@/components/FavoritesView";
 import SettingsView from "@/components/SettingsView";
 import PlayerView from "@/components/PlayerView";
 import { liveChannels as mockLiveChannels, movies as mockMovies, series as mockSeries } from "@/lib/mock-data";
-import type { Channel, VodItem } from "@/lib/mock-data";
+import type { Channel, VodItem, Episode } from "@/lib/mock-data";
 import { useCatalog } from "@/hooks/use-catalog";
 
 const Index = () => {
   const [activeSection, setActiveSection] = useState("dashboard");
   const [globalSearch, setGlobalSearch] = useState("");
   const [playingChannel, setPlayingChannel] = useState<Channel | null>(null);
+  const [playingEpisodeKey, setPlayingEpisodeKey] = useState<string | null>(null);
   const { catalog, hasCustomCatalog } = useCatalog();
 
   const liveItems = useMemo(() => (hasCustomCatalog ? catalog.live : mockLiveChannels), [catalog.live, hasCustomCatalog]);
@@ -30,6 +31,21 @@ const Index = () => {
       group: item.genre,
       url: item.streamUrl,
     };
+    setPlayingEpisodeKey(null);
+    setPlayingChannel(asChannel);
+  };
+
+  const handlePlayEpisode = (item: VodItem, episode: Episode, seasonNumber: number) => {
+    if (!episode.streamUrl) return;
+    const epKey = `${item.id}-S${String(seasonNumber).padStart(2, "0")}E${String(episode.episodeNum).padStart(2, "0")}`;
+    const asChannel: Channel = {
+      id: episode.id,
+      name: `${item.name} - T${seasonNumber} E${episode.episodeNum}`,
+      logo: item.poster,
+      group: item.genre,
+      url: episode.streamUrl,
+    };
+    setPlayingEpisodeKey(epKey);
     setPlayingChannel(asChannel);
   };
 
