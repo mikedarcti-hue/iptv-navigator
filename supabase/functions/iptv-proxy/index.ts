@@ -169,9 +169,6 @@ Deno.serve(async (req) => {
     }
 
     if (action === "fetch_xtream_series_info") {
-      const { seriesId } = await req.json().catch(() => ({ seriesId: null }));
-      const seriesIdVal = seriesId || (await req.json().catch(() => ({}))).seriesId;
-
       const infoUrl = `${buildXtreamUrl(server, username, password)}&action=get_series_info&series_id=${seriesId}`;
       const response = await fetchWithTimeout(infoUrl, {
         headers: { "User-Agent": "IPTVClient/1.0" },
