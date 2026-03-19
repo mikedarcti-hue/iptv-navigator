@@ -1,4 +1,5 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { setProgress } from "@/lib/watch-progress";
 import {
   ArrowLeft,
   Loader2,
