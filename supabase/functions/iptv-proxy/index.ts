@@ -23,6 +23,22 @@ type VodItem = {
   type: "movie" | "series";
   streamUrl?: string;
   synopsis?: string;
+  seriesId?: string;
+};
+
+type Episode = {
+  id: string;
+  episodeNum: number;
+  title: string;
+  streamUrl?: string;
+  duration?: string;
+  plot?: string;
+  containerExtension?: string;
+};
+
+type Season = {
+  seasonNumber: number;
+  episodes: Episode[];
 };
 
 Deno.serve(async (req) => {
@@ -31,7 +47,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, url, type, server, username, password } = await req.json();
+    const { action, url, type, server, username, password, seriesId } = await req.json();
 
     if (action === "test") {
       if (type === "m3u") {
@@ -152,6 +168,54 @@ Deno.serve(async (req) => {
       return json({ success: true, series: sortByName(mappedSeries) });
     }
 
+    if (action === "fetch_xtream_series_info") {
+      const infoUrl = `${buildXtreamUrl(server, username, password)}&action=get_series_info&series_id=${seriesId}`;
+      const response = await fetchWithTimeout(infoUrl, {
+        headers: { "User-Agent": "IPTVClient/1.0" },
+      }, 15000);
+
+      if (!response.ok) {
+        return json({ success: false, error: `HTTP ${response.status}` }, 400);
+      }
+
+      const data = await response.json();
+      const baseUrl = sanitizeBaseUrl(server);
+      const seasonsMap: Record<number, Episode[]> = {};
+
+      if (data?.episodes) {
+        for (const [seasonNum, episodes] of Object.entries(data.episodes)) {
+          const sNum = Number(seasonNum);
+          if (!Array.isArray(episodes)) continue;
+          seasonsMap[sNum] = (episodes as any[]).map((ep: any) => {
+            const ext = ep.container_extension || "m3u8";
+            return {
+              id: String(ep.id ?? ep.episode_num ?? 0),
+              episodeNum: Number(ep.episode_num || 0),
+              title: ep.title || `Episódio ${ep.episode_num}`,
+              streamUrl: `${baseUrl}/series/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${ep.id}.${ext}`,
+              duration: ep.info?.duration || undefined,
+              plot: ep.info?.plot || ep.info?.movie_image || undefined,
+              containerExtension: ext,
+            } as Episode;
+          });
+        }
+      }
+
+      const seasons: Season[] = Object.entries(seasonsMap)
+        .map(([num, episodes]) => ({ seasonNumber: Number(num), episodes }))
+        .sort((a, b) => a.seasonNumber - b.seasonNumber);
+
+      return json({
+        success: true,
+        seasons,
+        info: {
+          synopsis: data?.info?.plot || undefined,
+          cast: data?.info?.cast || undefined,
+          director: data?.info?.director || undefined,
+        },
+      });
+    }
+
     return json({ success: false, error: "Ação inválida" }, 400);
   } catch (error: any) {
     const message = error?.name === "AbortError"
@@ -247,6 +311,7 @@ function buildVodItem(item: any, index: number, categoryMap: Record<string, stri
     type,
     streamUrl,
     synopsis: item?.plot || item?.description || undefined,
+    seriesId: type === "series" ? String(item?.series_id ?? "") : undefined,
   };
 }
 

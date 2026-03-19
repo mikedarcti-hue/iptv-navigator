@@ -1,19 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import VodCard from "./VodCard";
 import VodDetailView from "./VodDetailView";
+import SeriesDetailView from "./SeriesDetailView";
 import SearchBar from "./SearchBar";
-import type { VodItem } from "@/lib/mock-data";
+import type { VodItem, Episode } from "@/lib/mock-data";
 
 interface VodGridViewProps {
   title: string;
   items: VodItem[];
   onPlayVod?: (item: VodItem) => void;
+  onPlayEpisode?: (item: VodItem, episode: Episode, seasonNumber: number) => void;
 }
 
 const INITIAL_VISIBLE_ITEMS = 60;
 const LOAD_MORE_STEP = 60;
 
-const VodGridView = ({ title, items, onPlayVod }: VodGridViewProps) => {
+const VodGridView = ({ title, items, onPlayVod, onPlayEpisode }: VodGridViewProps) => {
   const [search, setSearch] = useState("");
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_ITEMS);
@@ -39,6 +41,15 @@ const VodGridView = ({ title, items, onPlayVod }: VodGridViewProps) => {
   const visibleItems = filteredItems.slice(0, visibleCount);
 
   if (selectedItem) {
+    if (selectedItem.type === "series") {
+      return (
+        <SeriesDetailView
+          item={selectedItem}
+          onBack={() => setSelectedItem(null)}
+          onPlayEpisode={(item, episode, season) => onPlayEpisode?.(item, episode, season)}
+        />
+      );
+    }
     return (
       <VodDetailView
         item={selectedItem}

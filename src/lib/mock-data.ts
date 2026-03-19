@@ -8,6 +8,22 @@ export interface Channel {
   streamCandidates?: string[];
 }
 
+export interface Episode {
+  id: string;
+  episodeNum: number;
+  title: string;
+  streamUrl?: string;
+  duration?: string;
+  plot?: string;
+  info?: string;
+  containerExtension?: string;
+}
+
+export interface Season {
+  seasonNumber: number;
+  episodes: Episode[];
+}
+
 export interface VodItem {
   id: string;
   name: string;
@@ -22,6 +38,9 @@ export interface VodItem {
   duration?: string;
   cast?: string;
   director?: string;
+  seasons?: Season[];
+  /** Xtream series_id for lazy-loading episodes */
+  seriesId?: string;
 }
 
 export const liveChannels: Channel[] = [
