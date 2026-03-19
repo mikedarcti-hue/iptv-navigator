@@ -70,7 +70,7 @@ const Index = () => {
       case "movies":
         return <VodGridView title="Filmes" items={movieItems} onPlayVod={handlePlayVod} />;
       case "series":
-        return <VodGridView title="Séries" items={seriesItems} onPlayVod={handlePlayVod} />;
+        return <VodGridView title="Séries" items={seriesItems} onPlayVod={handlePlayVod} onPlayEpisode={handlePlayEpisode} />;
       case "favorites":
         return <FavoritesView />;
       case "settings":
