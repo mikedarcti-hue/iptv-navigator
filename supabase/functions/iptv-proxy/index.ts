@@ -23,6 +23,22 @@ type VodItem = {
   type: "movie" | "series";
   streamUrl?: string;
   synopsis?: string;
+  seriesId?: string;
+};
+
+type Episode = {
+  id: string;
+  episodeNum: number;
+  title: string;
+  streamUrl?: string;
+  duration?: string;
+  plot?: string;
+  containerExtension?: string;
+};
+
+type Season = {
+  seasonNumber: number;
+  episodes: Episode[];
 };
 
 Deno.serve(async (req) => {
