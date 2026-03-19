@@ -140,7 +140,16 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     const handleWaiting = () => { if (!active || error) return; setLoading(true); };
     const handleVideoError = () => failWithFallback("O servidor bloqueou ou interrompeu o stream deste canal");
     const handlePause = () => setPaused(true);
-    const handleTimeUpdate = () => { if (video) { setCurrentTime(video.currentTime); setDuration(video.duration || 0); } };
+    const handleTimeUpdate = () => {
+      if (video) {
+        setCurrentTime(video.currentTime);
+        setDuration(video.duration || 0);
+        // Save watch progress every 5 seconds for episodes/vod
+        if (episodeKey && video.duration && video.currentTime > 0 && Math.floor(video.currentTime) % 5 === 0) {
+          setProgress(episodeKey, video.currentTime, video.duration, channel.name);
+        }
+      }
+    };
 
     video.addEventListener("playing", handlePlaying);
     video.addEventListener("waiting", handleWaiting);
