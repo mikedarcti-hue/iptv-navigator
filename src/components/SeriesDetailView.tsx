@@ -44,6 +44,12 @@ const SeriesDetailView = ({ item, onBack, onPlayEpisode }: SeriesDetailViewProps
 
       if (!error && data?.success && data.seasons) {
         setSeasons(data.seasons);
+        // Update item info if available from API
+        if (data.info) {
+          if (data.info.synopsis && !item.synopsis) item.synopsis = data.info.synopsis;
+          if (data.info.cast && !item.cast) item.cast = data.info.cast;
+          if (data.info.director && !item.director) item.director = data.info.director;
+        }
       }
     } catch {
       // silently fail
