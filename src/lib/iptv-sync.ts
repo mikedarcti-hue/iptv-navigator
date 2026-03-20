@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { CatalogData } from "@/lib/catalog-store";
+import { parseM3UCatalogStream } from "@/lib/m3u-parser";
 
 export type ConnectionType = "m3u" | "xtream";
 
@@ -40,18 +41,7 @@ export async function testIptvConnection(config: ServerConfig) {
 
 export async function syncCatalogFromConfig(config: ServerConfig): Promise<CatalogData> {
   if (config.type === "m3u") {
-    const { data, error } = await supabase.functions.invoke("iptv-proxy", {
-      body: { action: "fetch_m3u_catalog", url: config.m3uUrl.trim() },
-    });
-
-    if (error) throw new Error(error.message);
-    if (!data?.success) throw new Error(data?.error || "Falha ao carregar catálogo");
-
-    return {
-      live: Array.isArray(data.live) ? data.live : [],
-      movies: Array.isArray(data.movies) ? data.movies : [],
-      series: Array.isArray(data.series) ? data.series : [],
-    };
+    return fetchM3UCatalogFromProxy(config.m3uUrl.trim());
   }
 
   const baseBody = {
@@ -83,4 +73,44 @@ export async function syncCatalogFromConfig(config: ServerConfig): Promise<Catal
     movies: Array.isArray(moviesResponse.data?.movies) ? moviesResponse.data.movies : [],
     series: Array.isArray(seriesResponse.data?.series) ? seriesResponse.data.series : [],
   };
+}
+
+async function fetchM3UCatalogFromProxy(url: string): Promise<CatalogData> {
+  const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/iptv-proxy`;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+  const response = await fetch(functionUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+    },
+    body: JSON.stringify({ action: "fetch_m3u_source", url }),
+  });
+
+  if (!response.ok) {
+    let message = `HTTP ${response.status}`;
+
+    try {
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        const errorData = await response.json();
+        message = errorData?.error || message;
+      } else {
+        const errorText = await response.text();
+        if (errorText) message = errorText;
+      }
+    } catch {
+      // ignore parsing fallback
+    }
+
+    throw new Error(message || "Falha ao carregar playlist M3U");
+  }
+
+  if (!response.body) {
+    throw new Error("A playlist retornou vazia");
+  }
+
+  return parseM3UCatalogStream(response.body);
 }

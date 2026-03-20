@@ -94,6 +94,25 @@ Deno.serve(async (req) => {
       return json({ success: true, ...catalog });
     }
 
+    if (action === "fetch_m3u_source") {
+      const response = await fetchWithDns(url, {
+        headers: { "User-Agent": "IPTVClient/1.0" },
+      }, 60000);
+
+      if (!response.ok || !response.body) {
+        return json({ success: false, error: `HTTP ${response.status}` }, 400);
+      }
+
+      return new Response(response.body, {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": response.headers.get("content-type") || "application/vnd.apple.mpegurl; charset=utf-8",
+          "Cache-Control": "no-cache",
+        },
+      });
+    }
+
     if (action === "fetch_xtream_live") {
       const categoryResponse = await fetchWithDns(
         `${buildXtreamUrl(server, username, password)}&action=get_live_categories`,
