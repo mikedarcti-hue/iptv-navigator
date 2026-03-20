@@ -46,7 +46,18 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     const candidates = [channel.url, ...(channel.streamCandidates ?? [])]
       .filter(Boolean)
       .map((url) => url.trim());
-    return Array.from(new Set(candidates));
+    // Add proxy URLs as fallback candidates
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const unique = Array.from(new Set(candidates));
+    if (supabaseUrl && supabaseKey) {
+      const proxyUrls = unique.map((u) => {
+        const proxyUrl = `${supabaseUrl}/functions/v1/iptv-proxy`;
+        return `__proxy__${proxyUrl}__${u}`;
+      });
+      return [...unique, ...proxyUrls];
+    }
+    return unique;
   }, [channel.url, channel.streamCandidates]);
 
   const resetHideTimer = useCallback(() => {
