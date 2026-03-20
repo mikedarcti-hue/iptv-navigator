@@ -46,7 +46,18 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     const candidates = [channel.url, ...(channel.streamCandidates ?? [])]
       .filter(Boolean)
       .map((url) => url.trim());
-    return Array.from(new Set(candidates));
+    // Add proxy URLs as fallback candidates
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const unique = Array.from(new Set(candidates));
+    if (supabaseUrl && supabaseKey) {
+      const proxyUrls = unique.map((u) => {
+        const proxyUrl = `${supabaseUrl}/functions/v1/iptv-proxy`;
+        return `__proxy__${proxyUrl}__${u}`;
+      });
+      return [...unique, ...proxyUrls];
+    }
+    return unique;
   }, [channel.url, channel.streamCandidates]);
 
   const resetHideTimer = useCallback(() => {
@@ -89,14 +100,52 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       setErrorMessage(message);
     };
 
-    const loadCandidate = (url: string) => {
+    const loadCandidate = (candidateUrl: string) => {
       cleanupPlayers();
       setLoading(true);
       setError(false);
 
+      // Handle proxy URLs
+      let url = candidateUrl;
+      let isProxy = false;
+      if (candidateUrl.startsWith("__proxy__")) {
+        isProxy = true;
+        const parts = candidateUrl.replace("__proxy__", "").split("__");
+        const proxyEndpoint = parts[0];
+        const originalUrl = parts.slice(1).join("__");
+        // For proxy, we use fetch to get the stream through the edge function
+        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        fetch(proxyEndpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": supabaseKey,
+            "Authorization": `Bearer ${supabaseKey}`,
+          },
+          body: JSON.stringify({ action: "proxy_stream", streamUrl: originalUrl }),
+        }).then(async (res) => {
+          if (!res.ok || !res.body) {
+            failWithFallback("Proxy não conseguiu carregar o stream");
+            return;
+          }
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          video.src = blobUrl;
+          video.play().catch(() => failWithFallback("Não foi possível reproduzir via proxy"));
+        }).catch(() => failWithFallback("Falha na conexão com o proxy"));
+        return;
+      }
+
       const normalizedUrl = url.toLowerCase();
       const isHlsUrl = normalizedUrl.includes(".m3u8") || normalizedUrl.includes("output=m3u8");
       const isMpegTsUrl = normalizedUrl.includes(".ts") || normalizedUrl.includes("/live/");
+      const isDirectVideo = /\.(mp4|mkv|avi|mov|webm)(\?|$)/.test(normalizedUrl);
+
+      if (isDirectVideo) {
+        video.src = url;
+        video.play().catch(() => failWithFallback("O navegador não conseguiu reproduzir este vídeo"));
+        return;
+      }
 
       if (isHlsUrl) {
         if (Hls.isSupported()) {

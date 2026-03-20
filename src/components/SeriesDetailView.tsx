@@ -21,16 +21,38 @@ const SeriesDetailView = ({ item, onBack, onPlayEpisode }: SeriesDetailViewProps
   const [loading, setLoading] = useState(false);
 
   const fetchSeriesInfo = useCallback(async () => {
-    if (seasons.length > 0 || !item.seriesId) return;
+    if (seasons.length > 0) return;
 
-    // Try to load from stored server config
+    // If item already has seasons embedded (M3U parsed), use them directly
+    if (item.seasons && item.seasons.length > 0) {
+      setSeasons(item.seasons);
+      return;
+    }
+
+    if (!item.seriesId) return;
+
+    // Try to load from stored server config (Xtream only)
     const storedConfig = localStorage.getItem("obsidian_server_config");
     if (!storedConfig) return;
 
     try {
       setLoading(true);
       const config = JSON.parse(storedConfig);
-      if (config.type !== "xtream") return;
+      if (config.type !== "xtream") {
+        // For M3U, if we have a streamUrl, create a single episode to play
+        if (item.streamUrl) {
+          setSeasons([{
+            seasonNumber: 1,
+            episodes: [{
+              id: item.id,
+              episodeNum: 1,
+              title: item.name,
+              streamUrl: item.streamUrl,
+            }],
+          }]);
+        }
+        return;
+      }
 
       const { data, error } = await supabase.functions.invoke("iptv-proxy", {
         body: {
@@ -44,7 +66,6 @@ const SeriesDetailView = ({ item, onBack, onPlayEpisode }: SeriesDetailViewProps
 
       if (!error && data?.success && data.seasons) {
         setSeasons(data.seasons);
-        // Update item info if available from API
         if (data.info) {
           if (data.info.synopsis && !item.synopsis) item.synopsis = data.info.synopsis;
           if (data.info.cast && !item.cast) item.cast = data.info.cast;
@@ -52,11 +73,22 @@ const SeriesDetailView = ({ item, onBack, onPlayEpisode }: SeriesDetailViewProps
         }
       }
     } catch {
-      // silently fail
+      // silently fail - for M3U fallback, allow direct play
+      if (item.streamUrl) {
+        setSeasons([{
+          seasonNumber: 1,
+          episodes: [{
+            id: item.id,
+            episodeNum: 1,
+            title: item.name,
+            streamUrl: item.streamUrl,
+          }],
+        }]);
+      }
     } finally {
       setLoading(false);
     }
-  }, [item.seriesId, seasons.length]);
+  }, [item.seriesId, item.seasons, item.streamUrl, seasons.length]);
 
   useEffect(() => {
     fetchSeriesInfo();
