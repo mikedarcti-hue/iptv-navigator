@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getStoredCatalog, setStoredCatalog, type CatalogData } from "@/lib/catalog-store";
+import { getStoredCatalog, setStoredCatalog, loadCatalogFromIDB, type CatalogData } from "@/lib/catalog-store";
 
 export function useCatalog() {
   const [catalog, setCatalog] = useState<CatalogData>(() => getStoredCatalog());
 
   useEffect(() => {
+    // Load full catalog from IndexedDB on mount
+    loadCatalogFromIDB().then((loaded) => {
+      setCatalog(loaded);
+    });
+
     const handler = () => setCatalog(getStoredCatalog());
     window.addEventListener("storage", handler);
     window.addEventListener("catalog-updated", handler);
@@ -20,10 +25,11 @@ export function useCatalog() {
   }, []);
 
   const updateCatalog = useCallback((nextCatalog: CatalogData) => {
-    setStoredCatalog(nextCatalog);
-    setCatalog(nextCatalog);
-    window.dispatchEvent(new Event("catalog-updated"));
-    window.dispatchEvent(new Event("channels-updated"));
+    setCatalog(nextCatalog); // update UI immediately
+    setStoredCatalog(nextCatalog).then(() => {
+      window.dispatchEvent(new Event("catalog-updated"));
+      window.dispatchEvent(new Event("channels-updated"));
+    });
   }, []);
 
   const hasCustomCatalog = useMemo(
