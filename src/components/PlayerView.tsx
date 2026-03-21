@@ -504,7 +504,6 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           playsInline
           muted
           controls={false}
-          crossOrigin="anonymous"
         />
 
         {loading && !error && (
