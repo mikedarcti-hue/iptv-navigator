@@ -25,6 +25,8 @@ interface PlayerViewProps {
   channel: Channel;
   onBack: () => void;
   episodeKey?: string | null;
+  /** Force VOD mode (movies/series) — disables live stream detection */
+  isVod?: boolean;
 }
 
 const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBack, episodeKey }, ref) => {
