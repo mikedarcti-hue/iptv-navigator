@@ -239,27 +239,98 @@ Deno.serve(async (req) => {
         return json({ success: false, error: "streamUrl é obrigatório" }, 400);
       }
 
-      const response = await fetchWithDns(streamUrl, {
-        headers: {
-          "User-Agent": "IPTVClient/1.0",
-          "Accept": "*/*",
-        },
-      }, 15000);
+      try {
+        const response = await fetchWithDns(streamUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Mobile Safari/537.36",
+            "Accept": "*/*",
+            "Referer": new URL(streamUrl).origin + "/",
+          },
+        }, 15000);
 
-      if (!response.ok) {
-        return json({ success: false, error: `HTTP ${response.status}` }, 400);
+        if (!response.ok) {
+          return json({ success: false, error: `HTTP ${response.status}` }, 400);
+        }
+
+        const contentType = response.headers.get("content-type") || "application/octet-stream";
+        const isM3U8 = streamUrl.toLowerCase().includes(".m3u8") || contentType.includes("mpegurl") || contentType.includes("m3u");
+
+        // If it's a m3u8 manifest, rewrite segment URLs to go through our proxy
+        if (isM3U8) {
+          const text = await response.text();
+          const baseUrlOfStream = streamUrl.substring(0, streamUrl.lastIndexOf("/") + 1);
+          
+          // Rewrite relative URLs in the manifest to absolute URLs
+          const rewritten = text.split("\n").map(line => {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith("#")) {
+              // Rewrite URI= references in tags like #EXT-X-KEY
+              if (trimmed.includes('URI="')) {
+                return trimmed.replace(/URI="([^"]+)"/g, (_, uri) => {
+                  if (uri.startsWith("http")) return `URI="${uri}"`;
+                  return `URI="${baseUrlOfStream}${uri}"`;
+                });
+              }
+              return line;
+            }
+            // It's a segment URL
+            if (trimmed.startsWith("http")) return line;
+            return baseUrlOfStream + trimmed;
+          }).join("\n");
+
+          return new Response(rewritten, {
+            status: 200,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/vnd.apple.mpegurl",
+              "Cache-Control": "no-cache, no-store",
+            },
+          });
+        }
+
+        return new Response(response.body, {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": contentType,
+            "Cache-Control": "no-cache",
+          },
+        });
+      } catch (e: any) {
+        return json({ success: false, error: e?.message || "Proxy stream failed" }, 500);
+      }
+    }
+
+    // HLS segment proxy - proxies individual TS segments
+    if (action === "proxy_segment") {
+      if (!streamUrl) {
+        return json({ success: false, error: "streamUrl é obrigatório" }, 400);
       }
 
-      const contentType = response.headers.get("content-type") || "application/octet-stream";
+      try {
+        const response = await fetchWithDns(streamUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Mobile Safari/537.36",
+            "Accept": "*/*",
+            "Referer": new URL(streamUrl).origin + "/",
+          },
+        }, 30000);
 
-      return new Response(response.body, {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": contentType,
-          "Cache-Control": "no-cache",
-        },
-      });
+        if (!response.ok) {
+          return new Response(null, { status: response.status, headers: corsHeaders });
+        }
+
+        return new Response(response.body, {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": response.headers.get("content-type") || "video/mp2t",
+            "Cache-Control": "no-cache",
+          },
+        });
+      } catch {
+        return new Response(null, { status: 502, headers: corsHeaders });
+      }
     }
 
     return json({ success: false, error: "Ação inválida" }, 400);
