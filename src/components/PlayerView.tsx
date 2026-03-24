@@ -50,6 +50,10 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const [castAvailable, setCastAvailable] = useState(false);
   const [bufferLow, setBufferLow] = useState(false);
 
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const proxyEndpoint = supabaseUrl ? `${supabaseUrl}/functions/v1/iptv-proxy` : null;
+
   const isLiveStream = useMemo(() => {
     const url = channel.url?.toLowerCase() ?? "";
     return url.includes(".m3u8") || url.includes("/live/") || url.includes("output=m3u8") ||
@@ -60,30 +64,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     const candidates = [channel.url, ...(channel.streamCandidates ?? [])]
       .filter(Boolean)
       .map((url) => url.trim());
-    const unique = Array.from(new Set(candidates));
-
-    const expanded: string[] = [];
-    for (const u of unique) {
-      expanded.push(u);
-      const lower = u.toLowerCase();
-      if (!lower.includes(".m3u8") && !lower.includes("output=m3u8")) {
-        if (lower.includes("/live/")) {
-          const m3u8Variant = u.replace(/\.\w+$/, ".m3u8");
-          if (m3u8Variant !== u) expanded.push(m3u8Variant);
-        }
-      }
-    }
-
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    if (supabaseUrl && supabaseKey) {
-      const proxyUrls = unique.map((u) => {
-        const proxyUrl = `${supabaseUrl}/functions/v1/iptv-proxy`;
-        return `__proxy__${proxyUrl}__${u}`;
-      });
-      return [...Array.from(new Set(expanded)), ...proxyUrls];
-    }
-    return Array.from(new Set(expanded));
+    return Array.from(new Set(candidates));
   }, [channel.url, channel.streamCandidates]);
 
   const resetHideTimer = useCallback(() => {
@@ -92,7 +73,6 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     hideTimerRef.current = setTimeout(() => setShowControls(false), 3500);
   }, []);
 
-  // Check cast availability
   useEffect(() => {
     if (videoRef.current && 'remote' in videoRef.current) {
       setCastAvailable(true);
@@ -104,7 +84,6 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     if (!isLiveStream) return;
     const video = videoRef.current;
     if (!video) return;
-
     const checkBuffer = () => {
       if (video.buffered.length > 0) {
         const bufferedEnd = video.buffered.end(video.buffered.length - 1);
@@ -112,7 +91,6 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         setBufferLow(remaining < 1 && !video.paused);
       }
     };
-
     const interval = setInterval(checkBuffer, 500);
     return () => clearInterval(interval);
   }, [isLiveStream]);
@@ -153,7 +131,12 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         attemptRef.current = nextAttempt;
         retryTimerRef.current = setTimeout(() => {
           if (active) loadCandidate(streamCandidates[nextAttempt]);
-        }, 300);
+        }, 500);
+        return;
+      }
+      // After exhausting direct candidates, try proxy if available
+      if (proxyEndpoint && !attemptRef.current.toString().includes("proxy")) {
+        tryViaProxy(streamCandidates[0]);
         return;
       }
       setLoading(false);
@@ -171,15 +154,160 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       }
     };
 
-    // Build HLS config based on live vs VOD
-    const buildHlsConfig = (isLive: boolean): Partial<ConstructorParameters<typeof Hls>[0]> => {
+    // Try streaming via proxy (for live channels blocked by CORS)
+    const tryViaProxy = async (originalUrl: string) => {
+      if (!active || !proxyEndpoint || !supabaseKey) {
+        failWithFallback("Canal indisponível");
+        return;
+      }
+
+      cleanupPlayers();
+      setLoading(true);
+      setError(false);
+
+      const isM3U8 = originalUrl.toLowerCase().includes(".m3u8");
+
+      if (isM3U8 && Hls.isSupported()) {
+        // Use HLS.js with custom loader that routes through our proxy
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+          backBufferLength: 0,
+          maxBufferLength: 12,
+          maxMaxBufferLength: 15,
+          maxBufferSize: 4 * 1024 * 1024,
+          maxBufferHole: 0.5,
+          liveSyncDurationCount: 2,
+          liveMaxLatencyDurationCount: 4,
+          liveDurationInfinity: true,
+          startLevel: 0,
+          startPosition: -1,
+          fragLoadingTimeOut: 15000,
+          fragLoadingMaxRetry: 5,
+          fragLoadingRetryDelay: 2000,
+          manifestLoadingTimeOut: 15000,
+          manifestLoadingMaxRetry: 3,
+          levelLoadingTimeOut: 15000,
+          preferManagedMediaSource: true,
+          pLoader: class ProxyLoader {
+            private loader: any;
+            constructor(config: any) {
+              // @ts-ignore
+              this.loader = new Hls.DefaultConfig.loader(config);
+            }
+            load(context: any, config: any, callbacks: any) {
+              // Route all requests through our proxy
+              const originalUrl = context.url;
+              const proxiedUrl = `${proxyEndpoint}`;
+              
+              // Override with fetch-based loading through proxy
+              const action = originalUrl.includes(".m3u8") || originalUrl.includes("m3u") ? "proxy_stream" : "proxy_segment";
+              
+              fetch(proxiedUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "apikey": supabaseKey,
+                  "Authorization": `Bearer ${supabaseKey}`,
+                },
+                body: JSON.stringify({ action, streamUrl: originalUrl }),
+              }).then(async (res) => {
+                if (!res.ok) {
+                  callbacks.onError({ code: res.status, text: `Proxy error ${res.status}` }, context, null, null);
+                  return;
+                }
+                const data = action === "proxy_stream" ? await res.text() : await res.arrayBuffer();
+                const response = {
+                  url: originalUrl,
+                  data,
+                };
+                const stats = {
+                  loading: { start: 0, first: 0, end: performance.now() },
+                  total: typeof data === "string" ? data.length : (data as ArrayBuffer).byteLength,
+                  loaded: typeof data === "string" ? data.length : (data as ArrayBuffer).byteLength,
+                  bwEstimate: 0,
+                  retry: 0,
+                  aborted: false,
+                };
+                callbacks.onSuccess(response, stats, context, null);
+              }).catch((err) => {
+                callbacks.onError({ code: 0, text: err.message }, context, null, null);
+              });
+            }
+            abort() { try { this.loader.abort(); } catch {} }
+            destroy() { try { this.loader.destroy(); } catch {} }
+          },
+        } as any);
+
+        hlsRef.current = hls;
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(originalUrl));
+        hls.on(Hls.Events.MANIFEST_PARSED, () => tryAutoplay(video));
+        hls.on(Hls.Events.ERROR, (_event, data) => {
+          if (!data.fatal) return;
+          if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            hls.recoverMediaError();
+            return;
+          }
+          hls.destroy();
+          hlsRef.current = null;
+          // Try .ts via proxy as last resort
+          const tsUrl = originalUrl.replace(/\.m3u8(\?.*)?$/, ".ts");
+          if (tsUrl !== originalUrl) {
+            tryTsViaProxy(tsUrl);
+          } else {
+            setLoading(false);
+            setError(true);
+            setErrorMessage("Não foi possível reproduzir este canal");
+          }
+        });
+        return;
+      }
+
+      // For .ts streams, fetch via proxy as blob
+      tryTsViaProxy(originalUrl);
+    };
+
+    const tryTsViaProxy = async (tsUrl: string) => {
+      if (!active || !proxyEndpoint || !supabaseKey) return;
+      
+      try {
+        const res = await fetch(proxyEndpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": supabaseKey,
+            "Authorization": `Bearer ${supabaseKey}`,
+          },
+          body: JSON.stringify({ action: "proxy_stream", streamUrl: tsUrl }),
+        });
+
+        if (!active || !res.ok) {
+          setLoading(false);
+          setError(true);
+          setErrorMessage("Canal indisponível no momento");
+          return;
+        }
+
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        video.src = blobUrl;
+        tryAutoplay(video);
+      } catch {
+        if (!active) return;
+        setLoading(false);
+        setError(true);
+        setErrorMessage("Falha ao conectar com o canal");
+      }
+    };
+
+    // Build HLS config for direct access
+    const buildHlsConfig = (isLive: boolean): any => {
       const base: any = {
         enableWorker: true,
         preferManagedMediaSource: true,
         xhrSetup: (xhr: XMLHttpRequest) => {
-          try {
-            xhr.setRequestHeader("User-Agent", TV_USER_AGENT);
-          } catch {}
+          try { xhr.setRequestHeader("User-Agent", TV_USER_AGENT); } catch {}
         },
       };
 
@@ -195,25 +323,24 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           liveSyncDurationCount: 2,
           liveMaxLatencyDurationCount: 4,
           liveDurationInfinity: true,
-          startLevel: 0, // Fast start: lowest quality first
+          startLevel: 0,
           startPosition: -1,
           fragLoadingTimeOut: 10000,
-          fragLoadingMaxRetry: 5,
+          fragLoadingMaxRetry: 3,
           fragLoadingRetryDelay: 2000,
           manifestLoadingTimeOut: 10000,
-          manifestLoadingMaxRetry: 4,
+          manifestLoadingMaxRetry: 3,
           levelLoadingTimeOut: 10000,
         };
       }
 
-      // VOD config
       return {
         ...base,
         lowLatencyMode: false,
         maxBufferLength: 30,
         maxMaxBufferLength: 60,
         maxBufferSize: 30 * 1024 * 1024,
-        startLevel: -1, // auto
+        startLevel: -1,
       };
     };
 
@@ -223,78 +350,10 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       setError(false);
       fragRetryCount.current = 0;
 
-      // Handle proxy URLs
-      if (candidateUrl.startsWith("__proxy__")) {
-        const parts = candidateUrl.replace("__proxy__", "").split("__");
-        const proxyEndpoint = parts[0];
-        const originalUrl = parts.slice(1).join("__");
-        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-        if (Hls.isSupported()) {
-          const hls = new Hls({
-            ...buildHlsConfig(true),
-            xhrSetup: (xhr: XMLHttpRequest) => {
-              try {
-                xhr.setRequestHeader("apikey", supabaseKey);
-                xhr.setRequestHeader("Authorization", `Bearer ${supabaseKey}`);
-                xhr.setRequestHeader("User-Agent", TV_USER_AGENT);
-              } catch {}
-            },
-          } as any);
-          hlsRef.current = hls;
-          hls.attachMedia(video);
-          hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(originalUrl));
-          hls.on(Hls.Events.MANIFEST_PARSED, () => tryAutoplay(video));
-          hls.on(Hls.Events.ERROR, (_event, data) => {
-            if (!data.fatal) return;
-            hls.destroy();
-            hlsRef.current = null;
-            // Fall back to direct proxy fetch
-            fetch(proxyEndpoint, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                apikey: supabaseKey,
-                Authorization: `Bearer ${supabaseKey}`,
-              },
-              body: JSON.stringify({ action: "proxy_stream", streamUrl: originalUrl }),
-            }).then(async (res) => {
-              if (!active || !res.ok || !res.body) {
-                failWithFallback("Proxy não conseguiu carregar o stream");
-                return;
-              }
-              const blob = await res.blob();
-              video.src = URL.createObjectURL(blob);
-              tryAutoplay(video);
-            }).catch(() => failWithFallback("Falha na conexão com o proxy"));
-          });
-          return;
-        }
-
-        fetch(proxyEndpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: supabaseKey,
-            Authorization: `Bearer ${supabaseKey}`,
-          },
-          body: JSON.stringify({ action: "proxy_stream", streamUrl: originalUrl }),
-        }).then(async (res) => {
-          if (!active || !res.ok || !res.body) {
-            failWithFallback("Proxy não conseguiu carregar o stream");
-            return;
-          }
-          const blob = await res.blob();
-          video.src = URL.createObjectURL(blob);
-          tryAutoplay(video);
-        }).catch(() => failWithFallback("Falha na conexão com o proxy"));
-        return;
-      }
-
       const url = candidateUrl;
       const normalizedUrl = url.toLowerCase();
       const isHlsUrl = normalizedUrl.includes(".m3u8") || normalizedUrl.includes("output=m3u8");
-      const isMpegTsUrl = normalizedUrl.includes(".ts") || normalizedUrl.includes("/live/");
+      const isMpegTsUrl = normalizedUrl.endsWith(".ts") || (normalizedUrl.includes("/live/") && normalizedUrl.includes(".ts"));
       const isDirectVideo = /\.(mp4|mkv|avi|mov|webm)(\?|$)/.test(normalizedUrl);
       const urlIsLive = isHlsUrl || isMpegTsUrl || (!isDirectVideo && isLiveStream);
 
@@ -305,90 +364,52 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         return;
       }
 
-      // HLS streams
-      if (isHlsUrl || (!isMpegTsUrl && !isDirectVideo)) {
+      // HLS streams - try direct first
+      if (isHlsUrl) {
         if (Hls.isSupported()) {
-          const hls = new Hls(buildHlsConfig(urlIsLive) as any);
+          const hls = new Hls(buildHlsConfig(urlIsLive));
           hlsRef.current = hls;
           hls.attachMedia(video);
           hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(url));
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            tryAutoplay(video);
-          });
+          hls.on(Hls.Events.MANIFEST_PARSED, () => tryAutoplay(video));
+
+          // Set a timeout - if no manifest parsed in 8s, try next candidate
+          const manifestTimeout = setTimeout(() => {
+            if (active && loading) {
+              hls.destroy();
+              hlsRef.current = null;
+              failWithFallback("Timeout ao carregar o manifesto HLS");
+            }
+          }, 8000);
+
+          hls.on(Hls.Events.MANIFEST_PARSED, () => clearTimeout(manifestTimeout));
 
           hls.on(Hls.Events.ERROR, (_event, data) => {
-            // Handle FRAG_LOAD_ERROR for live streams with retry
             if (data.details === "fragLoadError" && urlIsLive) {
               fragRetryCount.current++;
               if (fragRetryCount.current <= maxFragRetries) {
-                console.log(`[DARK IPTV] Frag load error, retry ${fragRetryCount.current}/${maxFragRetries}`);
                 retryTimerRef.current = setTimeout(() => {
-                  if (active && hlsRef.current) {
-                    hlsRef.current.startLoad();
-                  }
+                  if (active && hlsRef.current) hlsRef.current.startLoad();
                 }, 2000);
                 return;
               }
             }
 
             if (!data.fatal) return;
-
-            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-              // For live, retry network errors
-              if (urlIsLive && fragRetryCount.current < maxFragRetries) {
-                fragRetryCount.current++;
-                console.log(`[DARK IPTV] Network error, retrying...`);
-                retryTimerRef.current = setTimeout(() => {
-                  if (active && hlsRef.current) {
-                    hlsRef.current.loadSource(url);
-                    hlsRef.current.startLoad();
-                  }
-                }, 2000);
-                return;
-              }
-              // Fall through to MPEG-TS attempt
-            }
+            clearTimeout(manifestTimeout);
 
             if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
               hls.recoverMediaError();
               return;
             }
 
-            // HLS failed, try MPEG-TS
             hls.destroy();
             hlsRef.current = null;
-
-            if (mpegts.getFeatureList().mseLivePlayback) {
-              const tsPlayer = mpegts.createPlayer(
-                { type: "mpegts", isLive: true, url, hasAudio: true, hasVideo: true },
-                {
-                  enableWorker: true,
-                  enableStashBuffer: false,
-                  stashInitialSize: 128,
-                  liveBufferLatencyChasing: true,
-                  liveBufferLatencyMaxLatency: 3.0,
-                  liveBufferLatencyMinRemain: 0.5,
-                  autoCleanupSourceBuffer: true,
-                  headers: { "User-Agent": TV_USER_AGENT },
-                },
-              );
-              mpegtsRef.current = tsPlayer;
-              tsPlayer.attachMediaElement(video);
-              tsPlayer.load();
-              video.addEventListener("loadeddata", () => tryAutoplay(video), { once: true });
-              retryTimerRef.current = setTimeout(() => tryAutoplay(video), 2000);
-              tsPlayer.on(mpegts.Events.ERROR, () => {
-                failWithFallback("Formato do stream não suportado");
-              });
-            } else {
-              video.src = url;
-              tryAutoplay(video);
-            }
+            failWithFallback("Não foi possível abrir o stream HLS");
           });
           return;
         }
 
-        // Safari native HLS
         if (video.canPlayType("application/vnd.apple.mpegurl")) {
           video.src = url;
           tryAutoplay(video);
@@ -419,27 +440,71 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         player.attachMediaElement(video);
         player.load();
 
-        video.addEventListener("loadeddata", function onLoaded() {
-          video.removeEventListener("loadeddata", onLoaded);
-          tryAutoplay(video);
-        }, { once: true });
-
+        video.addEventListener("loadeddata", () => tryAutoplay(video), { once: true });
         retryTimerRef.current = setTimeout(() => tryAutoplay(video), 2000);
 
         player.on(mpegts.Events.ERROR, () => {
-          failWithFallback("O stream MPEG-TS falhou durante a reprodução");
+          failWithFallback("O stream MPEG-TS falhou");
         });
         return;
       }
 
-      // Final fallback
+      // Unknown format: try HLS.js first
+      if (Hls.isSupported()) {
+        const hls = new Hls(buildHlsConfig(urlIsLive));
+        hlsRef.current = hls;
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(url));
+        hls.on(Hls.Events.MANIFEST_PARSED, () => tryAutoplay(video));
+
+        const unknownTimeout = setTimeout(() => {
+          if (active && loading) {
+            hls.destroy();
+            hlsRef.current = null;
+            failWithFallback("Formato não reconhecido");
+          }
+        }, 6000);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => clearTimeout(unknownTimeout));
+        hls.on(Hls.Events.ERROR, (_event, data) => {
+          if (!data.fatal) return;
+          clearTimeout(unknownTimeout);
+          hls.destroy();
+          hlsRef.current = null;
+
+          if (mpegts.getFeatureList().mseLivePlayback) {
+            const tsPlayer = mpegts.createPlayer(
+              { type: "mpegts", isLive: true, url, hasAudio: true, hasVideo: true },
+              {
+                enableWorker: true,
+                enableStashBuffer: false,
+                stashInitialSize: 128,
+                liveBufferLatencyChasing: true,
+                autoCleanupSourceBuffer: true,
+                headers: { "User-Agent": TV_USER_AGENT },
+              },
+            );
+            mpegtsRef.current = tsPlayer;
+            tsPlayer.attachMediaElement(video);
+            tsPlayer.load();
+            video.addEventListener("loadeddata", () => tryAutoplay(video), { once: true });
+            retryTimerRef.current = setTimeout(() => tryAutoplay(video), 2000);
+            tsPlayer.on(mpegts.Events.ERROR, () => failWithFallback("Formato não suportado"));
+          } else {
+            video.src = url;
+            tryAutoplay(video);
+          }
+        });
+        return;
+      }
+
       video.src = url;
       tryAutoplay(video);
     };
 
     const handlePlaying = () => { if (!active) return; setLoading(false); setError(false); setPaused(false); setBufferLow(false); };
     const handleWaiting = () => { if (!active || error) return; setLoading(true); };
-    const handleVideoError = () => failWithFallback("O servidor bloqueou ou interrompeu o stream deste canal");
+    const handleVideoError = () => failWithFallback("O servidor bloqueou ou interrompeu o stream");
     const handlePause = () => setPaused(true);
     const handleTimeUpdate = () => {
       if (video) {
@@ -468,7 +533,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       video.removeEventListener("timeupdate", handleTimeUpdate);
       cleanupPlayers();
     };
-  }, [streamCandidates, episodeKey, channel.name, isLiveStream]);
+  }, [streamCandidates, episodeKey, channel.name, isLiveStream, proxyEndpoint, supabaseKey]);
 
   useEffect(() => {
     if (videoRef.current) videoRef.current.muted = muted;
@@ -481,13 +546,14 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     };
   }, []);
 
-  // Listen for fullscreen changes (including Escape key)
   useEffect(() => {
-    const onFsChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", onFsChange);
-    return () => document.removeEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("webkitfullscreenchange", onFsChange);
+    };
   }, []);
 
   const togglePlay = () => {
@@ -505,23 +571,14 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const toggleFullscreen = async () => {
     const target = containerRef.current;
     if (!target) return;
-
     try {
       if (!document.fullscreenElement) {
-        // Try standard API first, then webkit fallback
-        if (target.requestFullscreen) {
-          await target.requestFullscreen();
-        } else if ((target as any).webkitRequestFullscreen) {
-          (target as any).webkitRequestFullscreen();
-        } else if ((target as any).msRequestFullscreen) {
-          (target as any).msRequestFullscreen();
-        }
+        if (target.requestFullscreen) await target.requestFullscreen();
+        else if ((target as any).webkitRequestFullscreen) (target as any).webkitRequestFullscreen();
+        else if ((target as any).msRequestFullscreen) (target as any).msRequestFullscreen();
       } else {
-        if (document.exitFullscreen) {
-          await document.exitFullscreen();
-        } else if ((document as any).webkitExitFullscreen) {
-          (document as any).webkitExitFullscreen();
-        }
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
       }
     } catch (e) {
       console.warn("[DARK IPTV] Fullscreen error:", e);
@@ -531,12 +588,9 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const handleCast = async () => {
     const video = videoRef.current;
     if (!video || !('remote' in video)) return;
-    try {
-      // @ts-ignore
+    try { // @ts-ignore
       await video.remote.prompt();
-    } catch (e) {
-      console.log("Cast não disponível:", e);
-    }
+    } catch (e) { console.log("Cast não disponível:", e); }
   };
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -581,7 +635,6 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           controls={false}
         />
 
-        {/* Loading spinner */}
         {(loading || bufferLow) && !error && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 pointer-events-none gap-2">
             <Loader2 className="w-10 h-10 text-primary animate-spin" />
@@ -599,17 +652,13 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         )}
 
         {/* Top bar */}
-        <div
-          className={cn(
-            "absolute top-0 inset-x-0 p-4 bg-gradient-to-b from-black/80 to-transparent transition-opacity duration-300 z-10",
-            showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-          )}
-        >
+        <div className={cn(
+          "absolute top-0 inset-x-0 p-4 bg-gradient-to-b from-black/80 to-transparent transition-opacity duration-300 z-10",
+          showControls ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}>
           <div className="flex items-center gap-3">
-            <button
-              onClick={(e) => { e.stopPropagation(); onBack(); }}
-              className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
-            >
+            <button onClick={(e) => { e.stopPropagation(); onBack(); }}
+              className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
               <ArrowLeft className="w-5 h-5 text-white" />
             </button>
             {channel.logo && (
@@ -627,22 +676,14 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         </div>
 
         {/* Bottom bar */}
-        <div
-          className={cn(
-            "absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-300 z-10",
-            showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-          )}
-        >
+        <div className={cn(
+          "absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-300 z-10",
+          showControls ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}>
           {!isLive && (
             <div className="px-4 pt-2">
-              <div
-                className="relative w-full h-1.5 bg-white/20 rounded-full cursor-pointer group/bar"
-                onClick={handleSeek}
-              >
-                <div
-                  className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all"
-                  style={{ width: `${progressPct}%` }}
-                />
+              <div className="relative w-full h-1.5 bg-white/20 rounded-full cursor-pointer group/bar" onClick={handleSeek}>
+                <div className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all" style={{ width: `${progressPct}%` }} />
               </div>
               <div className="flex justify-between mt-1 text-[10px] text-white/50">
                 <span>{formatTime(currentTime)}</span>
@@ -654,53 +695,35 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           <div className="flex items-center justify-between gap-4 px-4 pb-4 pt-1">
             <div className="flex items-center gap-2">
               {!isLive && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); seekBy(-10); }}
-                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
-                  title="Voltar 10s"
-                >
+                <button onClick={(e) => { e.stopPropagation(); seekBy(-10); }}
+                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors" title="Voltar 10s">
                   <SkipBack className="w-4 h-4 text-white" />
                 </button>
               )}
-
-              <button
-                onClick={(e) => { e.stopPropagation(); togglePlay(); }}
-                className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
-              >
+              <button onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors">
                 {paused ? <Play className="w-5 h-5 text-white fill-white" /> : <Pause className="w-5 h-5 text-white" />}
               </button>
-
               {!isLive && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); seekBy(10); }}
-                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
-                  title="Avançar 10s"
-                >
+                <button onClick={(e) => { e.stopPropagation(); seekBy(10); }}
+                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors" title="Avançar 10s">
                   <SkipForward className="w-4 h-4 text-white" />
                 </button>
               )}
             </div>
-
             <div className="flex items-center gap-2">
-              <button
-                onClick={(e) => { e.stopPropagation(); setMuted((c) => !c); }}
-                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
-              >
+              <button onClick={(e) => { e.stopPropagation(); setMuted((c) => !c); }}
+                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
                 {muted ? <VolumeX className="w-4 h-4 text-white" /> : <Volume2 className="w-4 h-4 text-white" />}
               </button>
               {castAvailable && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleCast(); }}
-                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
-                  title="Transmitir (DLNA/Cast)"
-                >
+                <button onClick={(e) => { e.stopPropagation(); handleCast(); }}
+                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors" title="Transmitir">
                   <Cast className="w-4 h-4 text-white" />
                 </button>
               )}
-              <button
-                onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
-                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
-              >
+              <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
+                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
                 {isFullscreen ? <Minimize className="w-4 h-4 text-white" /> : <Maximize className="w-4 h-4 text-white" />}
               </button>
             </div>
