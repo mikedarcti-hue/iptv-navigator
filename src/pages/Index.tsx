@@ -16,6 +16,7 @@ const Index = () => {
   const [globalSearch, setGlobalSearch] = useState("");
   const [playingChannel, setPlayingChannel] = useState<Channel | null>(null);
   const [playingEpisodeKey, setPlayingEpisodeKey] = useState<string | null>(null);
+  const [playingIsVod, setPlayingIsVod] = useState(false);
   const { catalog, hasCustomCatalog } = useCatalog();
 
   const liveItems = useMemo(() => (hasCustomCatalog ? catalog.live : mockLiveChannels), [catalog.live, hasCustomCatalog]);
