@@ -18,6 +18,9 @@ import mpegts from "mpegts.js";
 import type { Channel } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
+const TV_USER_AGENT =
+  "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Mobile Safari/537.36";
+
 interface PlayerViewProps {
   channel: Channel;
   onBack: () => void;
@@ -32,8 +35,10 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const attemptRef = useRef(0);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const retryTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const fragRetryCount = useRef(0);
+  const maxFragRetries = 3;
 
-  const [muted, setMuted] = useState(true); // Start muted to guarantee autoplay
+  const [muted, setMuted] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -43,6 +48,13 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const [duration, setDuration] = useState(0);
   const [showControls, setShowControls] = useState(true);
   const [castAvailable, setCastAvailable] = useState(false);
+  const [bufferLow, setBufferLow] = useState(false);
+
+  const isLiveStream = useMemo(() => {
+    const url = channel.url?.toLowerCase() ?? "";
+    return url.includes(".m3u8") || url.includes("/live/") || url.includes("output=m3u8") ||
+      (!url.includes(".mp4") && !url.includes(".mkv") && !url.includes(".avi") && !url.includes(".mov") && !url.includes(".webm"));
+  }, [channel.url]);
 
   const streamCandidates = useMemo(() => {
     const candidates = [channel.url, ...(channel.streamCandidates ?? [])]
@@ -50,14 +62,11 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       .map((url) => url.trim());
     const unique = Array.from(new Set(candidates));
 
-    // For each URL, also add HLS attempt variant if not already HLS
     const expanded: string[] = [];
     for (const u of unique) {
       expanded.push(u);
-      // Add .m3u8 variant for live streams that might support HLS
       const lower = u.toLowerCase();
       if (!lower.includes(".m3u8") && !lower.includes("output=m3u8")) {
-        // Try same URL with output=m3u8 or .m3u8 extension
         if (lower.includes("/live/")) {
           const m3u8Variant = u.replace(/\.\w+$/, ".m3u8");
           if (m3u8Variant !== u) expanded.push(m3u8Variant);
@@ -65,7 +74,6 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       }
     }
 
-    // Add proxy URLs as last resort
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     if (supabaseUrl && supabaseKey) {
@@ -84,13 +92,30 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     hideTimerRef.current = setTimeout(() => setShowControls(false), 3500);
   }, []);
 
-  // Check for DLNA/Cast availability
+  // Check cast availability
   useEffect(() => {
-    // Check if Remote Playback API is available (for Chromecast/DLNA)
     if (videoRef.current && 'remote' in videoRef.current) {
       setCastAvailable(true);
     }
   }, []);
+
+  // Monitor buffer health for live streams
+  useEffect(() => {
+    if (!isLiveStream) return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    const checkBuffer = () => {
+      if (video.buffered.length > 0) {
+        const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+        const remaining = bufferedEnd - video.currentTime;
+        setBufferLow(remaining < 1 && !video.paused);
+      }
+    };
+
+    const interval = setInterval(checkBuffer, 500);
+    return () => clearInterval(interval);
+  }, [isLiveStream]);
 
   // Stream loading effect
   useEffect(() => {
@@ -104,6 +129,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
 
     let active = true;
     attemptRef.current = 0;
+    fragRetryCount.current = 0;
 
     const cleanupPlayers = () => {
       clearTimeout(retryTimerRef.current);
@@ -125,7 +151,6 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       const nextAttempt = attemptRef.current + 1;
       if (nextAttempt < streamCandidates.length) {
         attemptRef.current = nextAttempt;
-        // Small delay between attempts to avoid rapid-fire
         retryTimerRef.current = setTimeout(() => {
           if (active) loadCandidate(streamCandidates[nextAttempt]);
         }, 300);
@@ -137,48 +162,85 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     };
 
     const tryAutoplay = (v: HTMLVideoElement) => {
-      v.muted = true; // Ensure muted for autoplay policy
+      v.muted = true;
       const playPromise = v.play();
       if (playPromise) {
         playPromise.catch(() => {
-          // If muted autoplay fails, it's a real error
           failWithFallback("O navegador bloqueou a reprodução automática");
         });
       }
+    };
+
+    // Build HLS config based on live vs VOD
+    const buildHlsConfig = (isLive: boolean): Partial<ConstructorParameters<typeof Hls>[0]> => {
+      const base: any = {
+        enableWorker: true,
+        preferManagedMediaSource: true,
+        xhrSetup: (xhr: XMLHttpRequest) => {
+          try {
+            xhr.setRequestHeader("User-Agent", TV_USER_AGENT);
+          } catch {}
+        },
+      };
+
+      if (isLive) {
+        return {
+          ...base,
+          lowLatencyMode: true,
+          backBufferLength: 0,
+          maxBufferLength: 12,
+          maxMaxBufferLength: 15,
+          maxBufferSize: 4 * 1024 * 1024,
+          maxBufferHole: 0.5,
+          liveSyncDurationCount: 2,
+          liveMaxLatencyDurationCount: 4,
+          liveDurationInfinity: true,
+          startLevel: 0, // Fast start: lowest quality first
+          startPosition: -1,
+          fragLoadingTimeOut: 10000,
+          fragLoadingMaxRetry: 5,
+          fragLoadingRetryDelay: 2000,
+          manifestLoadingTimeOut: 10000,
+          manifestLoadingMaxRetry: 4,
+          levelLoadingTimeOut: 10000,
+        };
+      }
+
+      // VOD config
+      return {
+        ...base,
+        lowLatencyMode: false,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+        maxBufferSize: 30 * 1024 * 1024,
+        startLevel: -1, // auto
+      };
     };
 
     const loadCandidate = (candidateUrl: string) => {
       cleanupPlayers();
       setLoading(true);
       setError(false);
+      fragRetryCount.current = 0;
 
-      // Handle proxy URLs - streaming proxy for live
+      // Handle proxy URLs
       if (candidateUrl.startsWith("__proxy__")) {
         const parts = candidateUrl.replace("__proxy__", "").split("__");
         const proxyEndpoint = parts[0];
         const originalUrl = parts.slice(1).join("__");
         const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-        // For proxy, try to stream through HLS.js with custom loader
-        const proxyStreamUrl = `${proxyEndpoint}?action=proxy_stream&streamUrl=${encodeURIComponent(originalUrl)}`;
-
-        // Try HLS through proxy first
         if (Hls.isSupported()) {
           const hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: true,
-            maxBufferLength: 5,
-            maxMaxBufferLength: 10,
-            maxBufferSize: 2 * 1024 * 1024,
-            maxBufferHole: 0.5,
-            liveSyncDurationCount: 2,
-            liveMaxLatencyDurationCount: 5,
-            liveDurationInfinity: true,
-            xhrSetup: (xhr) => {
-              xhr.setRequestHeader("apikey", supabaseKey);
-              xhr.setRequestHeader("Authorization", `Bearer ${supabaseKey}`);
+            ...buildHlsConfig(true),
+            xhrSetup: (xhr: XMLHttpRequest) => {
+              try {
+                xhr.setRequestHeader("apikey", supabaseKey);
+                xhr.setRequestHeader("Authorization", `Bearer ${supabaseKey}`);
+                xhr.setRequestHeader("User-Agent", TV_USER_AGENT);
+              } catch {}
             },
-          });
+          } as any);
           hlsRef.current = hls;
           hls.attachMedia(video);
           hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(originalUrl));
@@ -187,13 +249,13 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
             if (!data.fatal) return;
             hls.destroy();
             hlsRef.current = null;
-            // Fall back to direct proxy fetch as blob
+            // Fall back to direct proxy fetch
             fetch(proxyEndpoint, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                "apikey": supabaseKey,
-                "Authorization": `Bearer ${supabaseKey}`,
+                apikey: supabaseKey,
+                Authorization: `Bearer ${supabaseKey}`,
               },
               body: JSON.stringify({ action: "proxy_stream", streamUrl: originalUrl }),
             }).then(async (res) => {
@@ -202,21 +264,19 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
                 return;
               }
               const blob = await res.blob();
-              const blobUrl = URL.createObjectURL(blob);
-              video.src = blobUrl;
+              video.src = URL.createObjectURL(blob);
               tryAutoplay(video);
             }).catch(() => failWithFallback("Falha na conexão com o proxy"));
           });
           return;
         }
 
-        // Fallback: fetch blob
         fetch(proxyEndpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "apikey": supabaseKey,
-            "Authorization": `Bearer ${supabaseKey}`,
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
           },
           body: JSON.stringify({ action: "proxy_stream", streamUrl: originalUrl }),
         }).then(async (res) => {
@@ -236,6 +296,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       const isHlsUrl = normalizedUrl.includes(".m3u8") || normalizedUrl.includes("output=m3u8");
       const isMpegTsUrl = normalizedUrl.includes(".ts") || normalizedUrl.includes("/live/");
       const isDirectVideo = /\.(mp4|mkv|avi|mov|webm)(\?|$)/.test(normalizedUrl);
+      const urlIsLive = isHlsUrl || isMpegTsUrl || (!isDirectVideo && isLiveStream);
 
       // Direct video files (VOD)
       if (isDirectVideo) {
@@ -245,42 +306,88 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       }
 
       // HLS streams
-      if (isHlsUrl) {
+      if (isHlsUrl || (!isMpegTsUrl && !isDirectVideo)) {
         if (Hls.isSupported()) {
-          const hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: true,
-            backBufferLength: 0,
-            maxBufferLength: 5,
-            maxMaxBufferLength: 10,
-            maxBufferSize: 2 * 1024 * 1024,
-            maxBufferHole: 0.5,
-            liveSyncDurationCount: 2,
-            liveMaxLatencyDurationCount: 5,
-            liveDurationInfinity: true,
-            startPosition: -1,
-            // HEVC/H.265 support - prefer hardware decoding
-            preferManagedMediaSource: true,
-          });
+          const hls = new Hls(buildHlsConfig(urlIsLive) as any);
           hlsRef.current = hls;
           hls.attachMedia(video);
           hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(url));
-          hls.on(Hls.Events.MANIFEST_PARSED, () => tryAutoplay(video));
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            tryAutoplay(video);
+          });
+
           hls.on(Hls.Events.ERROR, (_event, data) => {
-            if (!data.fatal) return;
-            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-              // Retry network errors up to 3 times
-              hls.startLoad();
-              return;
+            // Handle FRAG_LOAD_ERROR for live streams with retry
+            if (data.details === "fragLoadError" && urlIsLive) {
+              fragRetryCount.current++;
+              if (fragRetryCount.current <= maxFragRetries) {
+                console.log(`[DARK IPTV] Frag load error, retry ${fragRetryCount.current}/${maxFragRetries}`);
+                retryTimerRef.current = setTimeout(() => {
+                  if (active && hlsRef.current) {
+                    hlsRef.current.startLoad();
+                  }
+                }, 2000);
+                return;
+              }
             }
+
+            if (!data.fatal) return;
+
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+              // For live, retry network errors
+              if (urlIsLive && fragRetryCount.current < maxFragRetries) {
+                fragRetryCount.current++;
+                console.log(`[DARK IPTV] Network error, retrying...`);
+                retryTimerRef.current = setTimeout(() => {
+                  if (active && hlsRef.current) {
+                    hlsRef.current.loadSource(url);
+                    hlsRef.current.startLoad();
+                  }
+                }, 2000);
+                return;
+              }
+              // Fall through to MPEG-TS attempt
+            }
+
             if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
               hls.recoverMediaError();
               return;
             }
-            failWithFallback("Não foi possível abrir o stream HLS deste canal");
+
+            // HLS failed, try MPEG-TS
+            hls.destroy();
+            hlsRef.current = null;
+
+            if (mpegts.getFeatureList().mseLivePlayback) {
+              const tsPlayer = mpegts.createPlayer(
+                { type: "mpegts", isLive: true, url, hasAudio: true, hasVideo: true },
+                {
+                  enableWorker: true,
+                  enableStashBuffer: false,
+                  stashInitialSize: 128,
+                  liveBufferLatencyChasing: true,
+                  liveBufferLatencyMaxLatency: 3.0,
+                  liveBufferLatencyMinRemain: 0.5,
+                  autoCleanupSourceBuffer: true,
+                  headers: { "User-Agent": TV_USER_AGENT },
+                },
+              );
+              mpegtsRef.current = tsPlayer;
+              tsPlayer.attachMediaElement(video);
+              tsPlayer.load();
+              video.addEventListener("loadeddata", () => tryAutoplay(video), { once: true });
+              retryTimerRef.current = setTimeout(() => tryAutoplay(video), 2000);
+              tsPlayer.on(mpegts.Events.ERROR, () => {
+                failWithFallback("Formato do stream não suportado");
+              });
+            } else {
+              video.src = url;
+              tryAutoplay(video);
+            }
           });
           return;
         }
+
         // Safari native HLS
         if (video.canPlayType("application/vnd.apple.mpegurl")) {
           video.src = url;
@@ -292,13 +399,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       // MPEG-TS streams
       if (isMpegTsUrl && mpegts.getFeatureList().mseLivePlayback) {
         const player = mpegts.createPlayer(
-          {
-            type: "mpegts",
-            isLive: true,
-            url,
-            hasAudio: true,
-            hasVideo: true,
-          },
+          { type: "mpegts", isLive: true, url, hasAudio: true, hasVideo: true },
           {
             enableWorker: true,
             enableStashBuffer: false,
@@ -311,75 +412,22 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
             autoCleanupSourceBuffer: true,
             autoCleanupMaxBackwardDuration: 3,
             autoCleanupMinBackwardDuration: 1,
+            headers: { "User-Agent": TV_USER_AGENT },
           },
         );
         mpegtsRef.current = player;
         player.attachMediaElement(video);
         player.load();
 
-        // Wait for data before playing
         video.addEventListener("loadeddata", function onLoaded() {
           video.removeEventListener("loadeddata", onLoaded);
           tryAutoplay(video);
         }, { once: true });
 
-        // Fallback: try play after 2s even without loadeddata
         retryTimerRef.current = setTimeout(() => tryAutoplay(video), 2000);
 
         player.on(mpegts.Events.ERROR, () => {
           failWithFallback("O stream MPEG-TS falhou durante a reprodução");
-        });
-        return;
-      }
-
-      // Unknown format: try HLS.js first (many IPTV URLs don't have extensions)
-      if (Hls.isSupported()) {
-        const hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: true,
-          maxBufferLength: 5,
-          maxMaxBufferLength: 10,
-          liveSyncDurationCount: 2,
-          liveMaxLatencyDurationCount: 5,
-          liveDurationInfinity: true,
-          preferManagedMediaSource: true,
-        });
-        hlsRef.current = hls;
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(url));
-        hls.on(Hls.Events.MANIFEST_PARSED, () => tryAutoplay(video));
-        hls.on(Hls.Events.ERROR, (_event, data) => {
-          if (!data.fatal) return;
-          // HLS failed, try MPEG-TS
-          hls.destroy();
-          hlsRef.current = null;
-
-          if (mpegts.getFeatureList().mseLivePlayback) {
-            const tsPlayer = mpegts.createPlayer(
-              { type: "mpegts", isLive: true, url, hasAudio: true, hasVideo: true },
-              {
-                enableWorker: true,
-                enableStashBuffer: false,
-                stashInitialSize: 128,
-                liveBufferLatencyChasing: true,
-                liveBufferLatencyMaxLatency: 3.0,
-                liveBufferLatencyMinRemain: 0.5,
-                autoCleanupSourceBuffer: true,
-              },
-            );
-            mpegtsRef.current = tsPlayer;
-            tsPlayer.attachMediaElement(video);
-            tsPlayer.load();
-            video.addEventListener("loadeddata", () => tryAutoplay(video), { once: true });
-            retryTimerRef.current = setTimeout(() => tryAutoplay(video), 2000);
-            tsPlayer.on(mpegts.Events.ERROR, () => {
-              failWithFallback("Formato do stream não suportado");
-            });
-          } else {
-            // Last resort: direct src
-            video.src = url;
-            tryAutoplay(video);
-          }
         });
         return;
       }
@@ -389,7 +437,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       tryAutoplay(video);
     };
 
-    const handlePlaying = () => { if (!active) return; setLoading(false); setError(false); setPaused(false); };
+    const handlePlaying = () => { if (!active) return; setLoading(false); setError(false); setPaused(false); setBufferLow(false); };
     const handleWaiting = () => { if (!active || error) return; setLoading(true); };
     const handleVideoError = () => failWithFallback("O servidor bloqueou ou interrompeu o stream deste canal");
     const handlePause = () => setPaused(true);
@@ -420,7 +468,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       video.removeEventListener("timeupdate", handleTimeUpdate);
       cleanupPlayers();
     };
-  }, [streamCandidates, episodeKey, channel.name]);
+  }, [streamCandidates, episodeKey, channel.name, isLiveStream]);
 
   useEffect(() => {
     if (videoRef.current) videoRef.current.muted = muted;
@@ -431,6 +479,15 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       clearTimeout(hideTimerRef.current);
       clearTimeout(retryTimerRef.current);
     };
+  }, []);
+
+  // Listen for fullscreen changes (including Escape key)
+  useEffect(() => {
+    const onFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, []);
 
   const togglePlay = () => {
@@ -446,13 +503,28 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   };
 
   const toggleFullscreen = async () => {
-    if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
-      await containerRef.current.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      await document.exitFullscreen();
-      setIsFullscreen(false);
+    const target = containerRef.current;
+    if (!target) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        // Try standard API first, then webkit fallback
+        if (target.requestFullscreen) {
+          await target.requestFullscreen();
+        } else if ((target as any).webkitRequestFullscreen) {
+          (target as any).webkitRequestFullscreen();
+        } else if ((target as any).msRequestFullscreen) {
+          (target as any).msRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          (document as any).webkitExitFullscreen();
+        }
+      }
+    } catch (e) {
+      console.warn("[DARK IPTV] Fullscreen error:", e);
     }
   };
 
@@ -460,7 +532,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     const video = videoRef.current;
     if (!video || !('remote' in video)) return;
     try {
-      // @ts-ignore - Remote Playback API
+      // @ts-ignore
       await video.remote.prompt();
     } catch (e) {
       console.log("Cast não disponível:", e);
@@ -492,7 +564,10 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     <div ref={ref} className="space-y-4">
       <div
         ref={containerRef}
-        className="relative w-full aspect-video bg-black rounded-xl overflow-hidden card-shadow group"
+        className={cn(
+          "relative w-full bg-black rounded-xl overflow-hidden card-shadow group",
+          isFullscreen ? "fixed inset-0 z-[9999] rounded-none" : "aspect-video"
+        )}
         onMouseMove={resetHideTimer}
         onMouseLeave={() => setShowControls(false)}
         onClick={resetHideTimer}
@@ -506,9 +581,13 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           controls={false}
         />
 
-        {loading && !error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60 pointer-events-none">
+        {/* Loading spinner */}
+        {(loading || bufferLow) && !error && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 pointer-events-none gap-2">
             <Loader2 className="w-10 h-10 text-primary animate-spin" />
+            {bufferLow && !loading && (
+              <p className="text-xs text-white/70">Buffering...</p>
+            )}
           </div>
         )}
 
