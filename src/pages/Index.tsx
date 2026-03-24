@@ -54,7 +54,7 @@ const Index = () => {
 
   const renderContent = () => {
     if (playingChannel) {
-      return <PlayerView channel={playingChannel} onBack={() => { setPlayingChannel(null); setPlayingEpisodeKey(null); }} episodeKey={playingEpisodeKey} />;
+      return <PlayerView channel={playingChannel} onBack={() => { setPlayingChannel(null); setPlayingEpisodeKey(null); setPlayingIsVod(false); }} episodeKey={playingEpisodeKey} isVod={playingIsVod} />;
     }
 
     switch (activeSection) {
