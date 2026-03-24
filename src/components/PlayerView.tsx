@@ -142,8 +142,8 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         }, 500);
         return;
       }
-      // After exhausting direct candidates, try proxy if available
-      if (proxyEndpoint && !attemptRef.current.toString().includes("proxy")) {
+      // After exhausting direct candidates, try proxy only for LIVE streams
+      if (isLiveStream && proxyEndpoint && !attemptRef.current.toString().includes("proxy")) {
         tryViaProxy(streamCandidates[0]);
         return;
       }
