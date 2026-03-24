@@ -16,6 +16,7 @@ const Index = () => {
   const [globalSearch, setGlobalSearch] = useState("");
   const [playingChannel, setPlayingChannel] = useState<Channel | null>(null);
   const [playingEpisodeKey, setPlayingEpisodeKey] = useState<string | null>(null);
+  const [playingIsVod, setPlayingIsVod] = useState(false);
   const { catalog, hasCustomCatalog } = useCatalog();
 
   const liveItems = useMemo(() => (hasCustomCatalog ? catalog.live : mockLiveChannels), [catalog.live, hasCustomCatalog]);
@@ -32,6 +33,7 @@ const Index = () => {
       url: item.streamUrl,
     };
     setPlayingEpisodeKey(null);
+    setPlayingIsVod(true);
     setPlayingChannel(asChannel);
   };
 
@@ -46,12 +48,13 @@ const Index = () => {
       url: episode.streamUrl,
     };
     setPlayingEpisodeKey(epKey);
+    setPlayingIsVod(true);
     setPlayingChannel(asChannel);
   };
 
   const renderContent = () => {
     if (playingChannel) {
-      return <PlayerView channel={playingChannel} onBack={() => { setPlayingChannel(null); setPlayingEpisodeKey(null); }} episodeKey={playingEpisodeKey} />;
+      return <PlayerView channel={playingChannel} onBack={() => { setPlayingChannel(null); setPlayingEpisodeKey(null); setPlayingIsVod(false); }} episodeKey={playingEpisodeKey} isVod={playingIsVod} />;
     }
 
     switch (activeSection) {

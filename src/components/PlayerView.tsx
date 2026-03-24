@@ -25,9 +25,11 @@ interface PlayerViewProps {
   channel: Channel;
   onBack: () => void;
   episodeKey?: string | null;
+  /** Force VOD mode (movies/series) — disables live stream detection */
+  isVod?: boolean;
 }
 
-const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBack, episodeKey }, ref) => {
+const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBack, episodeKey, isVod = false }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -55,10 +57,16 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const proxyEndpoint = supabaseUrl ? `${supabaseUrl}/functions/v1/iptv-proxy` : null;
 
   const isLiveStream = useMemo(() => {
+    // If explicitly marked as VOD, never treat as live
+    if (isVod) return false;
     const url = channel.url?.toLowerCase() ?? "";
-    return url.includes(".m3u8") || url.includes("/live/") || url.includes("output=m3u8") ||
-      (!url.includes(".mp4") && !url.includes(".mkv") && !url.includes(".avi") && !url.includes(".mov") && !url.includes(".webm"));
-  }, [channel.url]);
+    // Xtream Codes VOD paths
+    if (url.includes("/movie/") || url.includes("/series/")) return false;
+    // Direct video files
+    if (/\.(mp4|mkv|avi|mov|webm)(\?|$)/.test(url)) return false;
+    // Everything else (m3u8 live, /live/ paths, etc.) is live
+    return true;
+  }, [channel.url, isVod]);
 
   const streamCandidates = useMemo(() => {
     const candidates = [channel.url, ...(channel.streamCandidates ?? [])]
@@ -134,8 +142,8 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         }, 500);
         return;
       }
-      // After exhausting direct candidates, try proxy if available
-      if (proxyEndpoint && !attemptRef.current.toString().includes("proxy")) {
+      // After exhausting direct candidates, try proxy only for LIVE streams
+      if (isLiveStream && proxyEndpoint && !attemptRef.current.toString().includes("proxy")) {
         tryViaProxy(streamCandidates[0]);
         return;
       }
