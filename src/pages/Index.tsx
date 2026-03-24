@@ -33,6 +33,7 @@ const Index = () => {
       url: item.streamUrl,
     };
     setPlayingEpisodeKey(null);
+    setPlayingIsVod(true);
     setPlayingChannel(asChannel);
   };
 
