@@ -14,7 +14,11 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Be Vietnam Pro", "system-ui", "sans-serif"],
+      },
+      screens: {
+        "tv": "1920px",
+        "tv-4k": "3840px",
       },
       colors: {
         border: "hsl(var(--border))",

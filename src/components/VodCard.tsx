@@ -1,4 +1,4 @@
-import { Star, Heart } from "lucide-react";
+import { Star, Play } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import type { VodItem } from "@/lib/mock-data";
@@ -11,55 +11,57 @@ interface VodCardProps {
 }
 
 const VodCard = ({ item, index, onClick }: VodCardProps) => {
-  const [isFav, setIsFav] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04, duration: 0.35 }}
-      className="group relative cursor-pointer"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: Math.min(index * 0.03, 0.3), duration: 0.3 }}
+      className="group relative cursor-pointer tv-focus rounded-lg"
+      tabIndex={0}
       onClick={() => onClick?.(item)}
     >
-      <div className="relative aspect-[2/3] rounded-xl overflow-hidden card-shadow bg-surface">
+      <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-card">
         {!imgLoaded && (
-          <div className="absolute inset-0 bg-gradient-to-r from-surface via-surface-hover to-surface animate-shimmer bg-[length:200%_100%]" />
+          <div className="absolute inset-0 bg-gradient-to-r from-card via-surface-hover to-card animate-shimmer bg-[length:200%_100%]" />
         )}
         <img
           src={item.poster}
           alt={item.name}
           onLoad={() => setImgLoaded(true)}
+          loading="lazy"
           className={cn(
             "w-full h-full object-cover transition-all duration-500",
-            "group-hover:scale-105 group-hover:brightness-75",
+            "group-hover:scale-110 group-hover:brightness-50",
             imgLoaded ? "opacity-100" : "opacity-0"
           )}
         />
-        {/* Overlay on hover */}
-        <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-          <div className="flex items-center gap-1 text-xs font-medium text-primary">
-            <Star className="w-3.5 h-3.5 fill-primary" />
-            {item.rating}
+
+        {/* Hover overlay */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+          <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center mb-2 shadow-lg glow-accent">
+            <Play className="w-5 h-5 text-primary-foreground fill-primary-foreground ml-0.5" />
           </div>
         </div>
-        {/* Favorite button */}
-        <button
-          onClick={(e) => { e.stopPropagation(); setIsFav(!isFav); }}
-          className="absolute top-2 right-2 w-8 h-8 rounded-full glass-surface flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
-        >
-          <Heart className={cn("w-4 h-4", isFav ? "fill-primary text-primary" : "text-foreground")} />
-        </button>
-        {/* Genre badge */}
-        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-semibold glass-surface text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-          {item.genre}
-        </div>
+
+        {/* Bottom gradient */}
+        <div className="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
+
+        {/* Rating */}
+        {item.rating && (
+          <div className="absolute bottom-2 left-2 flex items-center gap-1 text-[10px] font-semibold text-foreground/90">
+            <Star className="w-3 h-3 fill-primary text-primary" />
+            {item.rating}
+          </div>
+        )}
       </div>
-      <div className="mt-2.5 px-0.5">
-        <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+
+      <div className="mt-1.5 px-0.5">
+        <p className="text-xs sm:text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
           {item.name}
         </p>
-        <p className="text-xs text-muted-foreground mt-0.5">{item.year}</p>
+        <p className="text-[10px] sm:text-xs text-muted-foreground">{item.year}</p>
       </div>
     </motion.div>
   );
