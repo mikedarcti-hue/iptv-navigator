@@ -1,12 +1,14 @@
 import React, { useMemo, useState } from "react";
-import Sidebar from "@/components/Sidebar";
-import SearchBar from "@/components/SearchBar";
+import TopNav from "@/components/TopNav";
+import BottomNav from "@/components/BottomNav";
 import DashboardView from "@/components/DashboardView";
 import LiveView from "@/components/LiveView";
 import VodGridView from "@/components/VodGridView";
 import FavoritesView from "@/components/FavoritesView";
 import SettingsView from "@/components/SettingsView";
 import PlayerView from "@/components/PlayerView";
+import VodDetailView from "@/components/VodDetailView";
+import SeriesDetailView from "@/components/SeriesDetailView";
 import { liveChannels as mockLiveChannels, movies as mockMovies, series as mockSeries } from "@/lib/mock-data";
 import type { Channel, VodItem, Episode } from "@/lib/mock-data";
 import { useCatalog } from "@/hooks/use-catalog";
@@ -17,6 +19,7 @@ const Index = () => {
   const [playingChannel, setPlayingChannel] = useState<Channel | null>(null);
   const [playingEpisodeKey, setPlayingEpisodeKey] = useState<string | null>(null);
   const [playingIsVod, setPlayingIsVod] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<VodItem | null>(null);
   const { catalog, hasCustomCatalog } = useCatalog();
 
   const liveItems = useMemo(() => (hasCustomCatalog ? catalog.live : mockLiveChannels), [catalog.live, hasCustomCatalog]);
@@ -25,13 +28,8 @@ const Index = () => {
 
   const handlePlayVod = (item: VodItem) => {
     if (!item.streamUrl) return;
-    const asChannel: Channel = {
-      id: item.id,
-      name: item.name,
-      logo: item.poster,
-      group: item.genre,
-      url: item.streamUrl,
-    };
+    const asChannel: Channel = { id: item.id, name: item.name, logo: item.poster, group: item.genre, url: item.streamUrl };
+    setSelectedItem(null);
     setPlayingEpisodeKey(null);
     setPlayingIsVod(true);
     setPlayingChannel(asChannel);
@@ -40,29 +38,50 @@ const Index = () => {
   const handlePlayEpisode = (item: VodItem, episode: Episode, seasonNumber: number) => {
     if (!episode.streamUrl) return;
     const epKey = `${item.id}-S${String(seasonNumber).padStart(2, "0")}E${String(episode.episodeNum).padStart(2, "0")}`;
-    const asChannel: Channel = {
-      id: episode.id,
-      name: `${item.name} - T${seasonNumber} E${episode.episodeNum}`,
-      logo: item.poster,
-      group: item.genre,
-      url: episode.streamUrl,
-    };
+    const asChannel: Channel = { id: episode.id, name: `${item.name} - T${seasonNumber} E${episode.episodeNum}`, logo: item.poster, group: item.genre, url: episode.streamUrl };
+    setSelectedItem(null);
     setPlayingEpisodeKey(epKey);
     setPlayingIsVod(true);
     setPlayingChannel(asChannel);
   };
 
+  const handleSelectItem = (item: VodItem) => {
+    setSelectedItem(item);
+  };
+
+  const handleSectionChange = (section: string) => {
+    setPlayingChannel(null);
+    setSelectedItem(null);
+    setActiveSection(section);
+  };
+
   const renderContent = () => {
     if (playingChannel) {
-      return <PlayerView channel={playingChannel} onBack={() => { setPlayingChannel(null); setPlayingEpisodeKey(null); setPlayingIsVod(false); }} episodeKey={playingEpisodeKey} isVod={playingIsVod} />;
+      return (
+        <PlayerView
+          channel={playingChannel}
+          onBack={() => { setPlayingChannel(null); setPlayingEpisodeKey(null); setPlayingIsVod(false); }}
+          episodeKey={playingEpisodeKey}
+          isVod={playingIsVod}
+        />
+      );
+    }
+
+    if (selectedItem) {
+      if (selectedItem.type === "series") {
+        return <SeriesDetailView item={selectedItem} onBack={() => setSelectedItem(null)} onPlayEpisode={handlePlayEpisode} />;
+      }
+      return <VodDetailView item={selectedItem} onBack={() => setSelectedItem(null)} onPlay={handlePlayVod} />;
     }
 
     switch (activeSection) {
       case "dashboard":
         return (
           <DashboardView
-            onNavigate={setActiveSection}
+            onNavigate={handleSectionChange}
             onPlayChannel={setPlayingChannel}
+            onPlayVod={handlePlayVod}
+            onSelectItem={handleSelectItem}
             liveChannels={liveItems}
             movieItems={movieItems}
             seriesItems={seriesItems}
@@ -71,7 +90,7 @@ const Index = () => {
       case "live":
         return <LiveView channels={liveItems} />;
       case "movies":
-        return <VodGridView title="Filmes" items={movieItems} onPlayVod={handlePlayVod} />;
+        return <VodGridView title="Filmes" items={movieItems} onPlayVod={handlePlayVod} onPlayEpisode={handlePlayEpisode} />;
       case "series":
         return <VodGridView title="Séries" items={seriesItems} onPlayVod={handlePlayVod} onPlayEpisode={handlePlayEpisode} />;
       case "favorites":
@@ -81,8 +100,10 @@ const Index = () => {
       default:
         return (
           <DashboardView
-            onNavigate={setActiveSection}
+            onNavigate={handleSectionChange}
             onPlayChannel={setPlayingChannel}
+            onPlayVod={handlePlayVod}
+            onSelectItem={handleSelectItem}
             liveChannels={liveItems}
             movieItems={movieItems}
             seriesItems={seriesItems}
@@ -91,24 +112,22 @@ const Index = () => {
     }
   };
 
-  const handleSectionChange = (section: string) => {
-    setPlayingChannel(null);
-    setActiveSection(section);
-  };
-
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar activeSection={activeSection} onSectionChange={handleSectionChange} />
+      <TopNav
+        activeSection={activeSection}
+        onSectionChange={handleSectionChange}
+        globalSearch={globalSearch}
+        onSearchChange={setGlobalSearch}
+      />
 
-      <main className="ml-20 lg:ml-64 min-h-screen">
-        <header className="sticky top-0 z-40 h-20 flex items-center px-6 lg:px-10 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-          <div className="w-full max-w-xl">
-            <SearchBar value={globalSearch} onChange={setGlobalSearch} />
-          </div>
-        </header>
-
-        <div className="p-6 lg:p-10">{renderContent()}</div>
+      <main className="pt-14 md:pt-16 pb-20 md:pb-6">
+        <div className="px-4 md:px-8 lg:px-12">
+          {renderContent()}
+        </div>
       </main>
+
+      <BottomNav activeSection={activeSection} onSectionChange={handleSectionChange} />
     </div>
   );
 };

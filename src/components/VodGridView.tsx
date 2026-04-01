@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import VodCard from "./VodCard";
 import VodDetailView from "./VodDetailView";
 import SeriesDetailView from "./SeriesDetailView";
-import SearchBar from "./SearchBar";
 import type { VodItem, Episode } from "@/lib/mock-data";
+import { Search, X } from "lucide-react";
 
 interface VodGridViewProps {
   title: string;
@@ -12,107 +12,91 @@ interface VodGridViewProps {
   onPlayEpisode?: (item: VodItem, episode: Episode, seasonNumber: number) => void;
 }
 
-const INITIAL_VISIBLE_ITEMS = 60;
-const LOAD_MORE_STEP = 60;
+const INITIAL = 60;
+const STEP = 60;
 
 const VodGridView = ({ title, items, onPlayVod, onPlayEpisode }: VodGridViewProps) => {
   const [search, setSearch] = useState("");
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
-  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_ITEMS);
+  const [visibleCount, setVisibleCount] = useState(INITIAL);
   const [selectedItem, setSelectedItem] = useState<VodItem | null>(null);
 
-  const genres = useMemo(() => [...new Set(items.map((item) => item.genre))].sort(), [items]);
-
-  const filteredItems = useMemo(() => {
-    const term = search.trim().toLowerCase();
+  const genres = useMemo(() => [...new Set(items.map((i) => i.genre))].sort(), [items]);
+  const filtered = useMemo(() => {
+    const t = search.trim().toLowerCase();
     return items
-      .filter((item) => {
-        const matchesSearch = !term || item.name.toLowerCase().includes(term);
-        const matchesGenre = !selectedGenre || item.genre === selectedGenre;
-        return matchesSearch && matchesGenre;
-      })
+      .filter((i) => (!t || i.name.toLowerCase().includes(t)) && (!selectedGenre || i.genre === selectedGenre))
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   }, [items, search, selectedGenre]);
 
-  useEffect(() => {
-    setVisibleCount(INITIAL_VISIBLE_ITEMS);
-  }, [items, search, selectedGenre]);
-
-  const visibleItems = filteredItems.slice(0, visibleCount);
+  useEffect(() => setVisibleCount(INITIAL), [items, search, selectedGenre]);
 
   if (selectedItem) {
     if (selectedItem.type === "series") {
-      return (
-        <SeriesDetailView
-          item={selectedItem}
-          onBack={() => setSelectedItem(null)}
-          onPlayEpisode={(item, episode, season) => onPlayEpisode?.(item, episode, season)}
-        />
-      );
+      return <SeriesDetailView item={selectedItem} onBack={() => setSelectedItem(null)} onPlayEpisode={(item, ep, s) => onPlayEpisode?.(item, ep, s)} />;
     }
-    return (
-      <VodDetailView
-        item={selectedItem}
-        onBack={() => setSelectedItem(null)}
-        onPlay={(item) => onPlayVod?.(item)}
-      />
-    );
+    return <VodDetailView item={selectedItem} onBack={() => setSelectedItem(null)} onPlay={(item) => onPlayVod?.(item)} />;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">{title}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{items.length} títulos disponíveis</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">{title}</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">{items.length} títulos</p>
       </div>
 
-      <SearchBar value={search} onChange={setSearch} placeholder={`Buscar ${title.toLowerCase()}...`} />
+      {/* Search */}
+      <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-card border border-border/50">
+        <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={`Buscar ${title.toLowerCase()}...`}
+          className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+        />
+        {search && (
+          <button onClick={() => setSearch("")}><X className="w-4 h-4 text-muted-foreground" /></button>
+        )}
+      </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* Genre filters */}
+      <div className="flex gap-2 overflow-x-auto carousel-scroll pb-1">
         <button
           onClick={() => setSelectedGenre(null)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            !selectedGenre ? "bg-primary/20 text-primary" : "bg-surface text-muted-foreground hover:text-foreground hover:bg-surface-hover"
-          }`}
+          className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${!selectedGenre ? "bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground"}`}
         >
           Todos
         </button>
-        {genres.map((genre) => (
+        {genres.map((g) => (
           <button
-            key={genre}
-            onClick={() => setSelectedGenre(genre === selectedGenre ? null : genre)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              selectedGenre === genre ? "bg-primary/20 text-primary" : "bg-surface text-muted-foreground hover:text-foreground hover:bg-surface-hover"
-            }`}
+            key={g}
+            onClick={() => setSelectedGenre(g === selectedGenre ? null : g)}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${selectedGenre === g ? "bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground"}`}
           >
-            {genre}
+            {g}
           </button>
         ))}
       </div>
 
-      {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-12">Nenhum título encontrado nessa categoria.</p>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {visibleItems.map((item, index) => (
-              <VodCard key={item.id} item={item} index={index} onClick={setSelectedItem} />
-            ))}
-          </div>
+      {/* Grid */}
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3">
+        {filtered.slice(0, visibleCount).map((item, index) => (
+          <VodCard key={item.id} item={item} index={index} onClick={setSelectedItem} />
+        ))}
+      </div>
 
-          {filteredItems.length > visibleCount && (
-            <button
-              onClick={() => setVisibleCount((current) => current + LOAD_MORE_STEP)}
-              className="w-full rounded-xl border border-border bg-surface py-3 text-sm font-medium text-foreground transition-colors hover:bg-surface-hover"
-            >
-              Carregar mais títulos
-            </button>
-          )}
+      {filtered.length > visibleCount && (
+        <button
+          onClick={() => setVisibleCount((c) => c + STEP)}
+          className="w-full py-3 rounded-lg bg-card text-sm font-medium text-foreground hover:bg-surface-hover transition-colors border border-border/30"
+        >
+          Carregar mais
+        </button>
+      )}
 
-          {filteredItems.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-12">Nenhum título encontrado.</p>
-          )}
-        </>
+      {filtered.length === 0 && items.length > 0 && (
+        <p className="text-sm text-muted-foreground text-center py-16">Nenhum título encontrado.</p>
       )}
     </div>
   );
