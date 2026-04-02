@@ -518,11 +518,24 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       if (video) {
         setCurrentTime(video.currentTime);
         setDuration(video.duration || 0);
-        if (episodeKey && video.duration && video.currentTime > 0 && Math.floor(video.currentTime) % 5 === 0) {
-          setProgress(episodeKey, video.currentTime, video.duration, channel.name);
+        // Save progress for VOD content (episodes and movies)
+        const progressKey = episodeKey || (isVod ? channel.id : null);
+        if (progressKey && video.duration && video.currentTime > 0 && Math.floor(video.currentTime) % 5 === 0) {
+          setProgress(progressKey, video.currentTime, video.duration, channel.name);
         }
       }
     };
+    // Resume from saved position for VOD
+    const handleCanPlay = () => {
+      if (!isVod) return;
+      const progressKey = episodeKey || channel.id;
+      const saved = getProgress(progressKey);
+      if (saved && saved.currentTime > 5 && saved.duration > 0 && (saved.currentTime / saved.duration) < 0.95) {
+        video.currentTime = saved.currentTime;
+      }
+      video.removeEventListener("canplay", handleCanPlay);
+    };
+    video.addEventListener("canplay", handleCanPlay);
 
     video.addEventListener("playing", handlePlaying);
     video.addEventListener("waiting", handleWaiting);
