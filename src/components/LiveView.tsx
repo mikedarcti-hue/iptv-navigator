@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import PlayerView from "./PlayerView";
 import type { Channel } from "@/lib/mock-data";
-import { Search, X, Play, ChevronRight, Tv, ArrowLeft } from "lucide-react";
+import { Search, X, Play, ChevronRight, Tv, ArrowLeft, Maximize } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
