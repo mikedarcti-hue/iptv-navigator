@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import type { VodItem } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { getProgressPercent } from "@/lib/watch-progress";
+import { Progress } from "@/components/ui/progress";
 
 interface VodCardProps {
   item: VodItem;
@@ -12,6 +14,7 @@ interface VodCardProps {
 
 const VodCard = ({ item, index, onClick }: VodCardProps) => {
   const [imgLoaded, setImgLoaded] = useState(false);
+  const progressPercent = getProgressPercent(item.id);
 
   return (
     <motion.div
@@ -47,6 +50,13 @@ const VodCard = ({ item, index, onClick }: VodCardProps) => {
 
         {/* Bottom gradient */}
         <div className="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
+
+        {/* Progress bar */}
+        {progressPercent > 0 && progressPercent < 95 && (
+          <div className="absolute bottom-0 inset-x-0">
+            <Progress value={progressPercent} className="h-1 rounded-none" />
+          </div>
+        )}
 
         {/* Rating */}
         {item.rating && (

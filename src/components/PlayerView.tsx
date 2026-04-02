@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { setProgress } from "@/lib/watch-progress";
+import { setProgress, getProgress } from "@/lib/watch-progress";
 import {
   ArrowLeft,
   Loader2,
@@ -181,12 +181,12 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           enableWorker: true,
           lowLatencyMode: true,
           backBufferLength: 0,
-          maxBufferLength: 12,
-          maxMaxBufferLength: 15,
-          maxBufferSize: 4 * 1024 * 1024,
+          maxBufferLength: 6,
+          maxMaxBufferLength: 10,
+          maxBufferSize: 2 * 1024 * 1024,
           maxBufferHole: 0.5,
           liveSyncDurationCount: 2,
-          liveMaxLatencyDurationCount: 4,
+          liveMaxLatencyDurationCount: 3,
           liveDurationInfinity: true,
           startLevel: 0,
           startPosition: -1,
@@ -324,12 +324,12 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           ...base,
           lowLatencyMode: true,
           backBufferLength: 0,
-          maxBufferLength: 12,
-          maxMaxBufferLength: 15,
-          maxBufferSize: 4 * 1024 * 1024,
+          maxBufferLength: 6,
+          maxMaxBufferLength: 10,
+          maxBufferSize: 2 * 1024 * 1024,
           maxBufferHole: 0.5,
           liveSyncDurationCount: 2,
-          liveMaxLatencyDurationCount: 4,
+          liveMaxLatencyDurationCount: 3,
           liveDurationInfinity: true,
           startLevel: 0,
           startPosition: -1,
@@ -345,9 +345,9 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       return {
         ...base,
         lowLatencyMode: false,
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60,
-        maxBufferSize: 30 * 1024 * 1024,
+        maxBufferLength: 15,
+        maxMaxBufferLength: 30,
+        maxBufferSize: 15 * 1024 * 1024,
         startLevel: -1,
       };
     };
@@ -518,11 +518,24 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       if (video) {
         setCurrentTime(video.currentTime);
         setDuration(video.duration || 0);
-        if (episodeKey && video.duration && video.currentTime > 0 && Math.floor(video.currentTime) % 5 === 0) {
-          setProgress(episodeKey, video.currentTime, video.duration, channel.name);
+        // Save progress for VOD content (episodes and movies)
+        const progressKey = episodeKey || (isVod ? channel.id : null);
+        if (progressKey && video.duration && video.currentTime > 0 && Math.floor(video.currentTime) % 5 === 0) {
+          setProgress(progressKey, video.currentTime, video.duration, channel.name);
         }
       }
     };
+    // Resume from saved position for VOD
+    const handleCanPlay = () => {
+      if (!isVod) return;
+      const progressKey = episodeKey || channel.id;
+      const saved = getProgress(progressKey);
+      if (saved && saved.currentTime > 5 && saved.duration > 0 && (saved.currentTime / saved.duration) < 0.95) {
+        video.currentTime = saved.currentTime;
+      }
+      video.removeEventListener("canplay", handleCanPlay);
+    };
+    video.addEventListener("canplay", handleCanPlay);
 
     video.addEventListener("playing", handlePlaying);
     video.addEventListener("waiting", handleWaiting);

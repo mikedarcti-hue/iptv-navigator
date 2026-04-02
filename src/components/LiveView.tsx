@@ -3,6 +3,7 @@ import ChannelRow from "./ChannelRow";
 import PlayerView from "./PlayerView";
 import type { Channel } from "@/lib/mock-data";
 import { Search, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface LiveViewProps {
   channels: Channel[];
@@ -15,13 +16,20 @@ const LiveView = ({ channels }: LiveViewProps) => {
   const [search, setSearch] = useState("");
   const [playing, setPlaying] = useState<Channel | null>(null);
   const [visibleCount, setVisibleCount] = useState(INITIAL);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const t = search.trim().toLowerCase();
     return channels
       .filter((c) => !t || c.name.toLowerCase().includes(t) || c.group.toLowerCase().includes(t))
+      .filter((c) => !selectedCategory || c.group === selectedCategory)
       .sort((a, b) => a.group.localeCompare(b.group, "pt-BR") || a.name.localeCompare(b.name, "pt-BR"));
-  }, [channels, search]);
+  }, [channels, search, selectedCategory]);
+
+  const categories = useMemo(() => {
+    const groups = [...new Set(channels.map((c) => c.group))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    return groups;
+  }, [channels]);
 
   const grouped = useMemo(() =>
     filtered.slice(0, visibleCount).reduce<Record<string, Channel[]>>((g, c) => {
@@ -29,7 +37,7 @@ const LiveView = ({ channels }: LiveViewProps) => {
       return g;
     }, {}), [filtered, visibleCount]);
 
-  useEffect(() => setVisibleCount(INITIAL), [channels, search]);
+  useEffect(() => setVisibleCount(INITIAL), [channels, search, selectedCategory]);
 
   if (playing) return <PlayerView channel={playing} onBack={() => setPlaying(null)} />;
 
@@ -51,6 +59,36 @@ const LiveView = ({ channels }: LiveViewProps) => {
         />
         {search && <button onClick={() => setSearch("")}><X className="w-4 h-4 text-muted-foreground" /></button>}
       </div>
+
+      {/* Category filters */}
+      {categories.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto carousel-scroll pb-1">
+          <button
+            onClick={() => setSelectedCategory(null)}
+            className={cn(
+              "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+              !selectedCategory ? "bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Todos ({channels.length})
+          </button>
+          {categories.map((cat) => {
+            const count = channels.filter((c) => c.group === cat).length;
+            return (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat === selectedCategory ? null : cat)}
+                className={cn(
+                  "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                  selectedCategory === cat ? "bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {cat} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {channels.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-16">Configure sua lista para carregar canais ao vivo.</p>
