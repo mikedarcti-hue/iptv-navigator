@@ -14,6 +14,7 @@ interface VodCardProps {
 
 const VodCard = ({ item, index, onClick }: VodCardProps) => {
   const [imgLoaded, setImgLoaded] = useState(false);
+  const progressPercent = getProgressPercent(item.id);
 
   return (
     <motion.div
