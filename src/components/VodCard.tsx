@@ -51,6 +51,13 @@ const VodCard = ({ item, index, onClick }: VodCardProps) => {
         {/* Bottom gradient */}
         <div className="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
 
+        {/* Progress bar */}
+        {progressPercent > 0 && progressPercent < 95 && (
+          <div className="absolute bottom-0 inset-x-0">
+            <Progress value={progressPercent} className="h-1 rounded-none" />
+          </div>
+        )}
+
         {/* Rating */}
         {item.rating && (
           <div className="absolute bottom-2 left-2 flex items-center gap-1 text-[10px] font-semibold text-foreground/90">
