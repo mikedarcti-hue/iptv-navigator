@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import type { VodItem } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { getProgressPercent } from "@/lib/watch-progress";
+import { Progress } from "@/components/ui/progress";
 
 interface VodCardProps {
   item: VodItem;
