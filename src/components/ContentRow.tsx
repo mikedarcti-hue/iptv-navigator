@@ -18,7 +18,7 @@ const ContentRow = ({ title, items, onItemClick, onSeeAll }: ContentRowProps) =>
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between px-4 md:px-0">
-        <h2 className="text-base sm:text-lg font-bold text-foreground tracking-tight">{title}</h2>
+        <h2 className="text-base sm:text-lg tv:text-xl font-bold text-foreground tracking-tight">{title}</h2>
         {onSeeAll && (
           <button
             onClick={onSeeAll}
@@ -31,10 +31,11 @@ const ContentRow = ({ title, items, onItemClick, onSeeAll }: ContentRowProps) =>
       </div>
       <div
         ref={scrollRef}
-        className="flex gap-3 overflow-x-auto carousel-scroll pl-4 md:pl-0 pr-4 md:pr-0 pb-2"
+        className="flex gap-3 overflow-x-auto carousel-scroll pl-4 md:pl-0 pr-4 md:pr-0 pb-2 touch-pan-x"
+        style={{ WebkitOverflowScrolling: "touch" }}
       >
         {items.map((item, index) => (
-          <div key={item.id} className="shrink-0 w-[130px] sm:w-[150px] md:w-[160px] lg:w-[170px] xl:w-[180px]">
+          <div key={item.id} className="shrink-0 w-[120px] sm:w-[140px] md:w-[155px] lg:w-[170px] xl:w-[180px] tv:w-[220px]">
             <VodCard item={item} index={index} onClick={onItemClick} />
           </div>
         ))}
