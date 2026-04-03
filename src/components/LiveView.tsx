@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PlayerView from "./PlayerView";
 import type { Channel } from "@/lib/mock-data";
-import { Search, X, Play, ChevronRight, Tv, ArrowLeft, Maximize } from "lucide-react";
+import { Search, X, Play, ChevronRight, Tv, ArrowLeft, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { isFavorite, toggleFavorite } from "@/lib/favorites";
+import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface LiveViewProps {
   channels: Channel[];
@@ -18,7 +21,8 @@ const LiveView = ({ channels }: LiveViewProps) => {
   const [previewing, setPreviewing] = useState<Channel | null>(null);
   const [visibleCount, setVisibleCount] = useState(INITIAL);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
+  const [, setTick] = useState(0);
+  const isMobile = useIsMobile();
 
   const categories = useMemo(() => {
     const groups = [...new Set(channels.map((c) => c.group))].sort((a, b) => a.localeCompare(b, "pt-BR"));
@@ -51,17 +55,11 @@ const LiveView = ({ channels }: LiveViewProps) => {
 
   useEffect(() => setVisibleCount(INITIAL), [selectedCategory, search]);
 
-  // Close preview when clicking outside
-  useEffect(() => {
-    if (!previewing) return;
-    const handler = (e: MouseEvent) => {
-      if (previewRef.current && !previewRef.current.contains(e.target as Node)) {
-        setPreviewing(null);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [previewing]);
+  const handleToggleFav = (id: string) => {
+    const added = toggleFavorite(id, "channel");
+    setTick((t) => t + 1);
+    toast.success(added ? "Adicionado aos favoritos" : "Removido dos favoritos");
+  };
 
   if (playing) return <PlayerView channel={playing} onBack={() => setPlaying(null)} />;
 
@@ -106,7 +104,7 @@ const LiveView = ({ channels }: LiveViewProps) => {
         )}
       </div>
 
-      {/* Category Grid (when no category selected) */}
+      {/* Category Grid */}
       {!selectedCategory && (
         <AnimatePresence mode="wait">
           <motion.div
@@ -114,7 +112,7 @@ const LiveView = ({ channels }: LiveViewProps) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 tv:grid-cols-8 gap-3"
           >
             {filteredCategories.map((cat, i) => (
               <motion.button
@@ -123,15 +121,15 @@ const LiveView = ({ channels }: LiveViewProps) => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: Math.min(i * 0.03, 0.3), duration: 0.25 }}
                 onClick={() => setSelectedCategory(cat.name)}
-                className="group relative flex flex-col items-center justify-center gap-2 p-5 rounded-xl bg-card border border-border/30 hover:border-primary/50 hover:bg-surface-hover transition-all cursor-pointer tv-focus"
+                className="group relative flex flex-col items-center justify-center gap-2 p-4 sm:p-5 rounded-xl bg-card border border-border/30 hover:border-primary/50 hover:bg-surface-hover transition-all cursor-pointer tv-focus"
               >
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <Tv className="w-5 h-5 text-primary" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <Tv className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                 </div>
-                <span className="text-sm font-medium text-foreground text-center truncate w-full">
+                <span className="text-xs sm:text-sm font-medium text-foreground text-center truncate w-full">
                   {cat.name}
                 </span>
-                <span className="text-xs text-muted-foreground">{cat.count} canais</span>
+                <span className="text-[10px] sm:text-xs text-muted-foreground">{cat.count} canais</span>
                 <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </motion.button>
             ))}
@@ -139,7 +137,7 @@ const LiveView = ({ channels }: LiveViewProps) => {
         </AnimatePresence>
       )}
 
-      {/* Channel List (when category selected) */}
+      {/* Channel List + Player side by side on desktop */}
       {selectedCategory && (
         <AnimatePresence mode="wait">
           <motion.div
@@ -147,85 +145,80 @@ const LiveView = ({ channels }: LiveViewProps) => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="space-y-1"
+            className={cn(
+              "gap-4",
+              !isMobile && previewing ? "flex" : "block"
+            )}
           >
-            {/* Mini Preview */}
-            <AnimatePresence>
-              {previewing && (
+            {/* Channel list */}
+            <div className={cn(
+              "space-y-1 overflow-y-auto",
+              !isMobile && previewing ? "w-[340px] lg:w-[400px] shrink-0 max-h-[70vh]" : "w-full"
+            )}>
+              {visibleChannels.map((c, i) => (
                 <motion.div
-                  ref={previewRef}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="mb-4 rounded-xl overflow-hidden bg-card border border-border/50 card-shadow"
+                  key={c.id}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: Math.min(i * 0.015, 0.2), duration: 0.2 }}
+                  onClick={() => isMobile ? setPlaying(c) : setPreviewing(c)}
+                  className={cn(
+                    "group flex items-center gap-3 p-3 rounded-lg hover:bg-card/80 transition-all cursor-pointer tv-focus",
+                    previewing?.id === c.id && "bg-card border border-primary/30"
+                  )}
                 >
-                  <div className="aspect-video max-h-[280px] sm:max-h-[320px] bg-black relative">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-md bg-card overflow-hidden shrink-0">
+                    {c.logo ? (
+                      <img src={c.logo} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-muted-foreground bg-secondary">
+                        {c.name.substring(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{c.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{c.epgNow || c.group}</p>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleToggleFav(c.id); }}
+                    className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 hover:bg-card transition-colors"
+                  >
+                    <Heart className={cn("w-4 h-4", isFavorite(c.id) ? "fill-primary text-primary" : "text-muted-foreground")} />
+                  </button>
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <Play className="w-3.5 h-3.5 text-primary fill-primary" />
+                  </div>
+                </motion.div>
+              ))}
+
+              {categoryChannels.length > visibleCount && (
+                <button
+                  onClick={() => setVisibleCount((c) => c + STEP)}
+                  className="w-full py-3 rounded-lg bg-card text-sm font-medium text-foreground hover:bg-surface-hover transition-colors border border-border/30"
+                >
+                  Carregar mais canais
+                </button>
+              )}
+
+              {visibleChannels.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-12">Nenhum canal encontrado.</p>
+              )}
+            </div>
+
+            {/* Player on the right (desktop only) */}
+            {!isMobile && previewing && (
+              <div className="flex-1 min-w-0 sticky top-20">
+                <div className="rounded-xl overflow-hidden bg-card border border-border/50 card-shadow">
+                  <div className="aspect-video bg-black relative">
                     <PlayerView
-                      ref={previewRef}
                       channel={previewing}
                       onBack={() => setPreviewing(null)}
                       isVod={false}
                     />
                   </div>
-                  <div className="p-3 flex items-center justify-between">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-foreground truncate">{previewing.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{previewing.group}</p>
-                    </div>
-                    <button
-                      onClick={() => setPlaying(previewing)}
-                      className="shrink-0 ml-3 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-2"
-                    >
-                      <Maximize className="w-4 h-4" />
-                      Tela cheia
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {visibleChannels.map((c, i) => (
-              <motion.div
-                key={c.id}
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: Math.min(i * 0.015, 0.2), duration: 0.2 }}
-                onClick={() => setPreviewing(c)}
-                className={cn(
-                  "group flex items-center gap-3 p-3 rounded-lg hover:bg-card/80 transition-all cursor-pointer tv-focus",
-                  previewing?.id === c.id && "bg-card border border-primary/30"
-                )}
-              >
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-md bg-card overflow-hidden shrink-0">
-                  {c.logo ? (
-                    <img src={c.logo} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-muted-foreground bg-secondary">
-                      {c.name.substring(0, 2).toUpperCase()}
-                    </div>
-                  )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{c.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{c.epgNow || c.group}</p>
-                </div>
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                  <Play className="w-3.5 h-3.5 text-primary fill-primary" />
-                </div>
-              </motion.div>
-            ))}
-
-            {categoryChannels.length > visibleCount && (
-              <button
-                onClick={() => setVisibleCount((c) => c + STEP)}
-                className="w-full py-3 rounded-lg bg-card text-sm font-medium text-foreground hover:bg-surface-hover transition-colors border border-border/30"
-              >
-                Carregar mais canais
-              </button>
-            )}
-
-            {visibleChannels.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-12">Nenhum canal encontrado.</p>
+              </div>
             )}
           </motion.div>
         </AnimatePresence>

@@ -1,10 +1,12 @@
-import { Star, Play } from "lucide-react";
+import { Star, Play, Heart } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import type { VodItem } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { getProgressPercent } from "@/lib/watch-progress";
+import { isFavorite, toggleFavorite } from "@/lib/favorites";
 import { Progress } from "@/components/ui/progress";
+import { toast } from "sonner";
 
 interface VodCardProps {
   item: VodItem;
@@ -14,7 +16,16 @@ interface VodCardProps {
 
 const VodCard = ({ item, index, onClick }: VodCardProps) => {
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [, setTick] = useState(0);
   const progressPercent = getProgressPercent(item.id);
+  const fav = isFavorite(item.id);
+
+  const handleFav = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const added = toggleFavorite(item.id, item.type);
+    setTick((t) => t + 1);
+    toast.success(added ? "Adicionado aos favoritos" : "Removido dos favoritos");
+  };
 
   return (
     <motion.div
@@ -40,6 +51,14 @@ const VodCard = ({ item, index, onClick }: VodCardProps) => {
             imgLoaded ? "opacity-100" : "opacity-0"
           )}
         />
+
+        {/* Favorite button */}
+        <button
+          onClick={handleFav}
+          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10 hover:bg-black/70"
+        >
+          <Heart className={cn("w-3.5 h-3.5", fav ? "fill-primary text-primary" : "text-white")} />
+        </button>
 
         {/* Hover overlay */}
         <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">

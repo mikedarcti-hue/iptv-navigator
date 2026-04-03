@@ -55,6 +55,13 @@ const Index = () => {
     setActiveSection(section);
   };
 
+  const handlePlayChannel = (channel: Channel) => {
+    setSelectedItem(null);
+    setPlayingEpisodeKey(null);
+    setPlayingIsVod(false);
+    setPlayingChannel(channel);
+  };
+
   const renderContent = () => {
     if (playingChannel) {
       return (
@@ -79,7 +86,7 @@ const Index = () => {
         return (
           <DashboardView
             onNavigate={handleSectionChange}
-            onPlayChannel={setPlayingChannel}
+            onPlayChannel={handlePlayChannel}
             onPlayVod={handlePlayVod}
             onSelectItem={handleSelectItem}
             liveChannels={liveItems}
@@ -94,14 +101,22 @@ const Index = () => {
       case "series":
         return <VodGridView title="Séries" items={seriesItems} onPlayVod={handlePlayVod} onPlayEpisode={handlePlayEpisode} />;
       case "favorites":
-        return <FavoritesView />;
+        return (
+          <FavoritesView
+            liveChannels={liveItems}
+            movieItems={movieItems}
+            seriesItems={seriesItems}
+            onPlayChannel={handlePlayChannel}
+            onSelectItem={handleSelectItem}
+          />
+        );
       case "settings":
         return <SettingsView />;
       default:
         return (
           <DashboardView
             onNavigate={handleSectionChange}
-            onPlayChannel={setPlayingChannel}
+            onPlayChannel={handlePlayChannel}
             onPlayVod={handlePlayVod}
             onSelectItem={handleSelectItem}
             liveChannels={liveItems}
@@ -122,7 +137,7 @@ const Index = () => {
       />
 
       <main className="pt-14 md:pt-16 pb-20 md:pb-6">
-        <div className="px-4 md:px-8 lg:px-12">
+        <div className="px-3 sm:px-4 md:px-8 lg:px-12 tv:px-16">
           {renderContent()}
         </div>
       </main>
