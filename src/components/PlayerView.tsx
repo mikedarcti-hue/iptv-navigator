@@ -635,12 +635,68 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
   const isLive = !isFinite(duration) || duration === 0;
 
+  // Handle D-pad / remote keys on the player
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const video = videoRef.current;
+      if (!video) return;
+
+      switch (e.key) {
+        case "ArrowLeft":
+          e.preventDefault();
+          if (!isLive) seekBy(-10);
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          if (!isLive) seekBy(10);
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          video.volume = Math.min(1, video.volume + 0.1);
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          video.volume = Math.max(0, video.volume - 0.1);
+          break;
+        case "Enter":
+        case " ":
+          e.preventDefault();
+          togglePlay();
+          resetHideTimer();
+          break;
+        case "Escape":
+        case "Backspace":
+        case "GoBack":
+        case "XF86Back":
+          e.preventDefault();
+          if (document.fullscreenElement) {
+            document.exitFullscreen();
+          } else {
+            onBack();
+          }
+          break;
+        case "f":
+          e.preventDefault();
+          toggleFullscreen();
+          break;
+        case "m":
+          e.preventDefault();
+          setMuted((c) => !c);
+          break;
+      }
+      resetHideTimer();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isLive, onBack, resetHideTimer]);
+
   return (
     <div ref={ref} className="space-y-4">
       <div
         ref={containerRef}
+        tabIndex={0}
         className={cn(
-          "relative w-full bg-black rounded-xl overflow-hidden card-shadow group",
+          "relative w-full bg-black rounded-xl overflow-hidden card-shadow group focus:outline-none",
           isFullscreen ? "fixed inset-0 z-[9999] rounded-none" : "aspect-video"
         )}
         onMouseMove={resetHideTimer}
