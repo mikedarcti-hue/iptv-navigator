@@ -17,6 +17,7 @@ import Hls from "hls.js";
 import mpegts from "mpegts.js";
 import type { Channel } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { useDeviceMode } from "@/pages/Index";
 
 const TV_USER_AGENT =
   "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Mobile Safari/537.36";
@@ -30,6 +31,8 @@ interface PlayerViewProps {
 }
 
 const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBack, episodeKey, isVod = false }, ref) => {
+  const deviceMode = useDeviceMode();
+  const isTvMode = deviceMode === "tv";
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -78,8 +81,8 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const resetHideTimer = useCallback(() => {
     setShowControls(true);
     clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => setShowControls(false), 3500);
-  }, []);
+    hideTimerRef.current = setTimeout(() => setShowControls(false), isTvMode ? 8000 : 3500);
+  }, [isTvMode]);
 
   useEffect(() => {
     if (videoRef.current && 'remote' in videoRef.current) {
@@ -635,12 +638,77 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
   const isLive = !isFinite(duration) || duration === 0;
 
+  // Refs for TV button navigation
+  const controlButtonsRef = useRef<HTMLButtonElement[]>([]);
+  const [focusedBtnIdx, setFocusedBtnIdx] = useState(0);
+
+  const registerBtn = useCallback((el: HTMLButtonElement | null, idx: number) => {
+    if (el) controlButtonsRef.current[idx] = el;
+  }, []);
+
   // Handle D-pad / remote keys on the player
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const video = videoRef.current;
       if (!video) return;
 
+      // Always show controls on any key press
+      resetHideTimer();
+
+      if (isTvMode) {
+        // TV MODE: arrows navigate between buttons, Enter activates focused button
+        const buttons = controlButtonsRef.current.filter(Boolean);
+        switch (e.key) {
+          case "ArrowLeft":
+            e.preventDefault();
+            setFocusedBtnIdx((prev) => {
+              const next = Math.max(0, prev - 1);
+              buttons[next]?.focus();
+              return next;
+            });
+            break;
+          case "ArrowRight":
+            e.preventDefault();
+            setFocusedBtnIdx((prev) => {
+              const next = Math.min(buttons.length - 1, prev + 1);
+              buttons[next]?.focus();
+              return next;
+            });
+            break;
+          case "ArrowUp":
+            e.preventDefault();
+            video.volume = Math.min(1, video.volume + 0.1);
+            break;
+          case "ArrowDown":
+            e.preventDefault();
+            video.volume = Math.max(0, video.volume - 0.1);
+            break;
+          case "Enter":
+          case " ":
+            e.preventDefault();
+            // If a button is focused, let it handle the click
+            if (document.activeElement && document.activeElement !== containerRef.current && document.activeElement.tagName === "BUTTON") {
+              (document.activeElement as HTMLButtonElement).click();
+            } else {
+              togglePlay();
+            }
+            break;
+          case "Escape":
+          case "Backspace":
+          case "GoBack":
+          case "XF86Back":
+            e.preventDefault();
+            if (document.fullscreenElement) {
+              document.exitFullscreen();
+            } else {
+              onBack();
+            }
+            break;
+        }
+        return;
+      }
+
+      // MOBILE MODE: arrows directly control playback
       switch (e.key) {
         case "ArrowLeft":
           e.preventDefault();
@@ -662,7 +730,6 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         case " ":
           e.preventDefault();
           togglePlay();
-          resetHideTimer();
           break;
         case "Escape":
         case "Backspace":
@@ -684,11 +751,25 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           setMuted((c) => !c);
           break;
       }
-      resetHideTimer();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isLive, onBack, resetHideTimer]);
+  }, [isLive, onBack, resetHideTimer, isTvMode]);
+
+  // In TV mode, keep controls visible longer and auto-focus first button
+  useEffect(() => {
+    if (isTvMode) {
+      setShowControls(true);
+      // Focus the play button initially
+      setTimeout(() => {
+        const buttons = controlButtonsRef.current.filter(Boolean);
+        if (buttons.length > 0) {
+          buttons[0]?.focus();
+          setFocusedBtnIdx(0);
+        }
+      }, 500);
+    }
+  }, [isTvMode]);
 
   return (
     <div ref={ref} className="space-y-4">
@@ -772,34 +853,34 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           <div className="flex items-center justify-between gap-4 px-4 pb-4 pt-1">
             <div className="flex items-center gap-2">
               {!isLive && (
-                <button onClick={(e) => { e.stopPropagation(); seekBy(-10); }}
+                <button ref={(el) => registerBtn(el, 0)} onClick={(e) => { e.stopPropagation(); seekBy(-10); }}
                   className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus" title="Voltar 10s">
                   <SkipBack className="w-4 h-4 text-white" />
                 </button>
               )}
-              <button onClick={(e) => { e.stopPropagation(); togglePlay(); }}
-                className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus">
+              <button ref={(el) => registerBtn(el, isLive ? 0 : 1)} onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus">
                 {paused ? <Play className="w-5 h-5 text-white fill-white" /> : <Pause className="w-5 h-5 text-white" />}
               </button>
               {!isLive && (
-                <button onClick={(e) => { e.stopPropagation(); seekBy(10); }}
+                <button ref={(el) => registerBtn(el, 2)} onClick={(e) => { e.stopPropagation(); seekBy(10); }}
                   className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus" title="Avançar 10s">
                   <SkipForward className="w-4 h-4 text-white" />
                 </button>
               )}
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={(e) => { e.stopPropagation(); setMuted((c) => !c); }}
+              <button ref={(el) => registerBtn(el, isLive ? 1 : 3)} onClick={(e) => { e.stopPropagation(); setMuted((c) => !c); }}
                 className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus">
                 {muted ? <VolumeX className="w-4 h-4 text-white" /> : <Volume2 className="w-4 h-4 text-white" />}
               </button>
               {castAvailable && (
-                <button onClick={(e) => { e.stopPropagation(); handleCast(); }}
+                <button ref={(el) => registerBtn(el, isLive ? 2 : 4)} onClick={(e) => { e.stopPropagation(); handleCast(); }}
                   className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus" title="Transmitir">
                   <Cast className="w-4 h-4 text-white" />
                 </button>
               )}
-              <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
+              <button ref={(el) => registerBtn(el, isLive ? (castAvailable ? 3 : 2) : (castAvailable ? 5 : 4))} onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
                 className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus">
                 {isFullscreen ? <Minimize className="w-4 h-4 text-white" /> : <Maximize className="w-4 h-4 text-white" />}
               </button>
