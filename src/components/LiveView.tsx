@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import PlayerView from "./PlayerView";
 import type { Channel } from "@/lib/mock-data";
-import { Search, X, Play, ChevronRight, Tv, ArrowLeft, Heart } from "lucide-react";
+import { Search, X, Play, ChevronRight, Tv, ArrowLeft, Heart, Maximize } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { isFavorite, toggleFavorite } from "@/lib/favorites";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useDeviceMode } from "@/pages/Index";
 
 interface LiveViewProps {
   channels: Channel[];
@@ -22,7 +23,9 @@ const LiveView = ({ channels }: LiveViewProps) => {
   const [visibleCount, setVisibleCount] = useState(INITIAL);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [, setTick] = useState(0);
+  const deviceMode = useDeviceMode();
   const isMobile = useIsMobile();
+  const isTvMode = deviceMode === "tv";
 
   const categories = useMemo(() => {
     const groups = [...new Set(channels.map((c) => c.group))].sort((a, b) => a.localeCompare(b, "pt-BR"));
