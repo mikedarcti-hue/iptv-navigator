@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import TopNav from "@/components/TopNav";
 import BottomNav from "@/components/BottomNav";
 import DashboardView from "@/components/DashboardView";
@@ -9,9 +9,15 @@ import SettingsView from "@/components/SettingsView";
 import PlayerView from "@/components/PlayerView";
 import VodDetailView from "@/components/VodDetailView";
 import SeriesDetailView from "@/components/SeriesDetailView";
+import DeviceModeSelector from "@/components/DeviceModeSelector";
+import ExitDialog from "@/components/ExitDialog";
 import { liveChannels as mockLiveChannels, movies as mockMovies, series as mockSeries } from "@/lib/mock-data";
 import type { Channel, VodItem, Episode } from "@/lib/mock-data";
 import { useCatalog } from "@/hooks/use-catalog";
+import { getDeviceMode, setDeviceMode, type DeviceMode } from "@/lib/device-mode";
+
+export const DeviceModeContext = createContext<DeviceMode>("mobile");
+export const useDeviceMode = () => useContext(DeviceModeContext);
 
 const Index = () => {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -20,11 +26,71 @@ const Index = () => {
   const [playingEpisodeKey, setPlayingEpisodeKey] = useState<string | null>(null);
   const [playingIsVod, setPlayingIsVod] = useState(false);
   const [selectedItem, setSelectedItem] = useState<VodItem | null>(null);
+  const [deviceMode, setDeviceModeState] = useState<DeviceMode | null>(getDeviceMode());
+  const [showExitDialog, setShowExitDialog] = useState(false);
   const { catalog, hasCustomCatalog } = useCatalog();
 
   const liveItems = useMemo(() => (hasCustomCatalog ? catalog.live : mockLiveChannels), [catalog.live, hasCustomCatalog]);
   const movieItems = useMemo(() => (hasCustomCatalog ? catalog.movies : mockMovies), [catalog.movies, hasCustomCatalog]);
   const seriesItems = useMemo(() => (hasCustomCatalog ? catalog.series : mockSeries), [catalog.series, hasCustomCatalog]);
+
+  const handleSelectMode = (mode: DeviceMode) => {
+    setDeviceMode(mode);
+    setDeviceModeState(mode);
+  };
+
+  // Back button / popstate handling
+  const handleBack = useCallback(() => {
+    if (playingChannel) {
+      setPlayingChannel(null);
+      setPlayingEpisodeKey(null);
+      setPlayingIsVod(false);
+      return;
+    }
+    if (selectedItem) {
+      setSelectedItem(null);
+      return;
+    }
+    if (activeSection !== "dashboard") {
+      setActiveSection("dashboard");
+      return;
+    }
+    // On dashboard — show exit dialog
+    setShowExitDialog(true);
+  }, [playingChannel, selectedItem, activeSection]);
+
+  useEffect(() => {
+    // Push a dummy history state so back button doesn't close the tab
+    const pushState = () => {
+      window.history.pushState({ darkIptv: true }, "");
+    };
+    pushState();
+
+    const onPopState = (e: PopStateEvent) => {
+      // Re-push to keep history alive
+      pushState();
+      handleBack();
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [handleBack]);
+
+  // Handle hardware back button via keydown (Android TV, Fire TV)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Backspace" || e.key === "GoBack" || e.key === "XF86Back") {
+        e.preventDefault();
+        handleBack();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handleBack]);
+
+  if (!deviceMode) {
+    return <DeviceModeSelector onSelect={handleSelectMode} />;
+  }
 
   const handlePlayVod = (item: VodItem) => {
     if (!item.streamUrl) return;
@@ -128,22 +194,33 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <TopNav
-        activeSection={activeSection}
-        onSectionChange={handleSectionChange}
-        globalSearch={globalSearch}
-        onSearchChange={setGlobalSearch}
-      />
+    <DeviceModeContext.Provider value={deviceMode}>
+      <div className="min-h-screen bg-background" data-device={deviceMode}>
+        <TopNav
+          activeSection={activeSection}
+          onSectionChange={handleSectionChange}
+          globalSearch={globalSearch}
+          onSearchChange={setGlobalSearch}
+        />
 
-      <main className="pt-14 md:pt-16 pb-20 md:pb-6">
-        <div className="px-3 sm:px-4 md:px-8 lg:px-12 tv:px-16">
-          {renderContent()}
-        </div>
-      </main>
+        <main className="pt-14 md:pt-16 pb-20 md:pb-6">
+          <div className="px-3 sm:px-4 md:px-8 lg:px-12 tv:px-16">
+            {renderContent()}
+          </div>
+        </main>
 
-      <BottomNav activeSection={activeSection} onSectionChange={handleSectionChange} />
-    </div>
+        {deviceMode === "mobile" && (
+          <BottomNav activeSection={activeSection} onSectionChange={handleSectionChange} />
+        )}
+
+        {showExitDialog && (
+          <ExitDialog
+            onConfirm={() => window.close()}
+            onCancel={() => setShowExitDialog(false)}
+          />
+        )}
+      </div>
+    </DeviceModeContext.Provider>
   );
 };
 

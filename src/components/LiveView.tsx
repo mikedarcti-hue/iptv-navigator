@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import PlayerView from "./PlayerView";
 import type { Channel } from "@/lib/mock-data";
-import { Search, X, Play, ChevronRight, Tv, ArrowLeft, Heart } from "lucide-react";
+import { Search, X, Play, ChevronRight, Tv, ArrowLeft, Heart, Maximize } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { isFavorite, toggleFavorite } from "@/lib/favorites";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useDeviceMode } from "@/pages/Index";
 
 interface LiveViewProps {
   channels: Channel[];
@@ -22,7 +23,9 @@ const LiveView = ({ channels }: LiveViewProps) => {
   const [visibleCount, setVisibleCount] = useState(INITIAL);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [, setTick] = useState(0);
+  const deviceMode = useDeviceMode();
   const isMobile = useIsMobile();
+  const isTvMode = deviceMode === "tv";
 
   const categories = useMemo(() => {
     const groups = [...new Set(channels.map((c) => c.group))].sort((a, b) => a.localeCompare(b, "pt-BR"));
@@ -161,34 +164,47 @@ const LiveView = ({ channels }: LiveViewProps) => {
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: Math.min(i * 0.015, 0.2), duration: 0.2 }}
-                  onClick={() => isMobile ? setPlaying(c) : setPreviewing(c)}
-                  className={cn(
-                    "group flex items-center gap-3 p-3 rounded-lg hover:bg-card/80 transition-all cursor-pointer tv-focus",
-                    previewing?.id === c.id && "bg-card border border-primary/30"
-                  )}
+                  className="flex items-center gap-2"
                 >
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-md bg-card overflow-hidden shrink-0">
-                    {c.logo ? (
-                      <img src={c.logo} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-muted-foreground bg-secondary">
-                        {c.name.substring(0, 2).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{c.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{c.epgNow || c.group}</p>
-                  </div>
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleToggleFav(c.id); }}
-                    className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 hover:bg-card transition-colors"
+                    onClick={() => isMobile ? setPlaying(c) : setPreviewing(c)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        if (isTvMode) setPreviewing(c);
+                        else if (isMobile) setPlaying(c);
+                        else setPreviewing(c);
+                      }
+                    }}
+                    className={cn(
+                      "group flex-1 flex items-center gap-3 p-3 rounded-lg hover:bg-card/80 transition-all cursor-pointer tv-focus",
+                      previewing?.id === c.id && "bg-card border border-primary/30"
+                    )}
+                  >
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-md bg-card overflow-hidden shrink-0">
+                      {c.logo ? (
+                        <img src={c.logo} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-muted-foreground bg-secondary">
+                          {c.name.substring(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-sm font-medium text-foreground truncate">{c.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{c.epgNow || c.group}</p>
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity shrink-0">
+                      <Play className="w-3.5 h-3.5 text-primary fill-primary" />
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleToggleFav(c.id)}
+                    className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 hover:bg-card transition-colors tv-focus"
+                    tabIndex={isTvMode ? -1 : 0}
                   >
                     <Heart className={cn("w-4 h-4", isFavorite(c.id) ? "fill-primary text-primary" : "text-muted-foreground")} />
                   </button>
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                    <Play className="w-3.5 h-3.5 text-primary fill-primary" />
-                  </div>
                 </motion.div>
               ))}
 

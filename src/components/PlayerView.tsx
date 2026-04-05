@@ -635,12 +635,68 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
   const isLive = !isFinite(duration) || duration === 0;
 
+  // Handle D-pad / remote keys on the player
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const video = videoRef.current;
+      if (!video) return;
+
+      switch (e.key) {
+        case "ArrowLeft":
+          e.preventDefault();
+          if (!isLive) seekBy(-10);
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          if (!isLive) seekBy(10);
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          video.volume = Math.min(1, video.volume + 0.1);
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          video.volume = Math.max(0, video.volume - 0.1);
+          break;
+        case "Enter":
+        case " ":
+          e.preventDefault();
+          togglePlay();
+          resetHideTimer();
+          break;
+        case "Escape":
+        case "Backspace":
+        case "GoBack":
+        case "XF86Back":
+          e.preventDefault();
+          if (document.fullscreenElement) {
+            document.exitFullscreen();
+          } else {
+            onBack();
+          }
+          break;
+        case "f":
+          e.preventDefault();
+          toggleFullscreen();
+          break;
+        case "m":
+          e.preventDefault();
+          setMuted((c) => !c);
+          break;
+      }
+      resetHideTimer();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isLive, onBack, resetHideTimer]);
+
   return (
     <div ref={ref} className="space-y-4">
       <div
         ref={containerRef}
+        tabIndex={0}
         className={cn(
-          "relative w-full bg-black rounded-xl overflow-hidden card-shadow group",
+          "relative w-full bg-black rounded-xl overflow-hidden card-shadow group focus:outline-none",
           isFullscreen ? "fixed inset-0 z-[9999] rounded-none" : "aspect-video"
         )}
         onMouseMove={resetHideTimer}
@@ -717,34 +773,34 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
             <div className="flex items-center gap-2">
               {!isLive && (
                 <button onClick={(e) => { e.stopPropagation(); seekBy(-10); }}
-                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors" title="Voltar 10s">
+                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus" title="Voltar 10s">
                   <SkipBack className="w-4 h-4 text-white" />
                 </button>
               )}
               <button onClick={(e) => { e.stopPropagation(); togglePlay(); }}
-                className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors">
+                className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus">
                 {paused ? <Play className="w-5 h-5 text-white fill-white" /> : <Pause className="w-5 h-5 text-white" />}
               </button>
               {!isLive && (
                 <button onClick={(e) => { e.stopPropagation(); seekBy(10); }}
-                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors" title="Avançar 10s">
+                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus" title="Avançar 10s">
                   <SkipForward className="w-4 h-4 text-white" />
                 </button>
               )}
             </div>
             <div className="flex items-center gap-2">
               <button onClick={(e) => { e.stopPropagation(); setMuted((c) => !c); }}
-                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus">
                 {muted ? <VolumeX className="w-4 h-4 text-white" /> : <Volume2 className="w-4 h-4 text-white" />}
               </button>
               {castAvailable && (
                 <button onClick={(e) => { e.stopPropagation(); handleCast(); }}
-                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors" title="Transmitir">
+                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus" title="Transmitir">
                   <Cast className="w-4 h-4 text-white" />
                 </button>
               )}
               <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
-                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus">
                 {isFullscreen ? <Minimize className="w-4 h-4 text-white" /> : <Maximize className="w-4 h-4 text-white" />}
               </button>
             </div>
