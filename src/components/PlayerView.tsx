@@ -81,8 +81,8 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const resetHideTimer = useCallback(() => {
     setShowControls(true);
     clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => setShowControls(false), 3500);
-  }, []);
+    hideTimerRef.current = setTimeout(() => setShowControls(false), isTvMode ? 8000 : 3500);
+  }, [isTvMode]);
 
   useEffect(() => {
     if (videoRef.current && 'remote' in videoRef.current) {
