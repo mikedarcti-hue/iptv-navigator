@@ -771,9 +771,6 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     }
   }, [isTvMode]);
 
-  // Button index counter for registration
-  let btnIdx = 0;
-
   return (
     <div ref={ref} className="space-y-4">
       <div
