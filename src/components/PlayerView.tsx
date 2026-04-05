@@ -31,6 +31,8 @@ interface PlayerViewProps {
 }
 
 const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBack, episodeKey, isVod = false }, ref) => {
+  const deviceMode = useDeviceMode();
+  const isTvMode = deviceMode === "tv";
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
