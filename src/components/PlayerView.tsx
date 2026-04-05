@@ -638,12 +638,77 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
   const isLive = !isFinite(duration) || duration === 0;
 
+  // Refs for TV button navigation
+  const controlButtonsRef = useRef<HTMLButtonElement[]>([]);
+  const [focusedBtnIdx, setFocusedBtnIdx] = useState(0);
+
+  const registerBtn = useCallback((el: HTMLButtonElement | null, idx: number) => {
+    if (el) controlButtonsRef.current[idx] = el;
+  }, []);
+
   // Handle D-pad / remote keys on the player
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const video = videoRef.current;
       if (!video) return;
 
+      // Always show controls on any key press
+      resetHideTimer();
+
+      if (isTvMode) {
+        // TV MODE: arrows navigate between buttons, Enter activates focused button
+        const buttons = controlButtonsRef.current.filter(Boolean);
+        switch (e.key) {
+          case "ArrowLeft":
+            e.preventDefault();
+            setFocusedBtnIdx((prev) => {
+              const next = Math.max(0, prev - 1);
+              buttons[next]?.focus();
+              return next;
+            });
+            break;
+          case "ArrowRight":
+            e.preventDefault();
+            setFocusedBtnIdx((prev) => {
+              const next = Math.min(buttons.length - 1, prev + 1);
+              buttons[next]?.focus();
+              return next;
+            });
+            break;
+          case "ArrowUp":
+            e.preventDefault();
+            video.volume = Math.min(1, video.volume + 0.1);
+            break;
+          case "ArrowDown":
+            e.preventDefault();
+            video.volume = Math.max(0, video.volume - 0.1);
+            break;
+          case "Enter":
+          case " ":
+            e.preventDefault();
+            // If a button is focused, let it handle the click
+            if (document.activeElement && document.activeElement !== containerRef.current && document.activeElement.tagName === "BUTTON") {
+              (document.activeElement as HTMLButtonElement).click();
+            } else {
+              togglePlay();
+            }
+            break;
+          case "Escape":
+          case "Backspace":
+          case "GoBack":
+          case "XF86Back":
+            e.preventDefault();
+            if (document.fullscreenElement) {
+              document.exitFullscreen();
+            } else {
+              onBack();
+            }
+            break;
+        }
+        return;
+      }
+
+      // MOBILE MODE: arrows directly control playback
       switch (e.key) {
         case "ArrowLeft":
           e.preventDefault();
@@ -665,7 +730,6 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         case " ":
           e.preventDefault();
           togglePlay();
-          resetHideTimer();
           break;
         case "Escape":
         case "Backspace":
@@ -687,13 +751,25 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           setMuted((c) => !c);
           break;
       }
-      resetHideTimer();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isLive, onBack, resetHideTimer]);
+  }, [isLive, onBack, resetHideTimer, isTvMode]);
 
-  return (
+  // In TV mode, keep controls visible longer and auto-focus first button
+  useEffect(() => {
+    if (isTvMode) {
+      setShowControls(true);
+      // Focus the play button initially
+      setTimeout(() => {
+        const buttons = controlButtonsRef.current.filter(Boolean);
+        if (buttons.length > 0) {
+          buttons[0]?.focus();
+          setFocusedBtnIdx(0);
+        }
+      }, 500);
+    }
+  }, [isTvMode]);
     <div ref={ref} className="space-y-4">
       <div
         ref={containerRef}
