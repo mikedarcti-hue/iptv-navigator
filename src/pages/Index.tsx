@@ -195,7 +195,7 @@ const Index = () => {
 
   return (
     <DeviceModeContext.Provider value={deviceMode}>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background" data-device={deviceMode}>
         <TopNav
           activeSection={activeSection}
           onSectionChange={handleSectionChange}
