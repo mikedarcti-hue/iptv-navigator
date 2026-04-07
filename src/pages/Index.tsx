@@ -62,7 +62,7 @@ const Index = () => {
     }
     // On dashboard — show exit dialog
     setShowExitDialog(true);
-  }, [playingChannel, selectedItem, activeSection]);
+  }, [playingChannel, selectedItem, activeSection, returnToItem]);
 
   useEffect(() => {
     // Push a dummy history state so back button doesn't close the tab
