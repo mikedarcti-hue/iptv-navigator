@@ -96,6 +96,7 @@ const Index = () => {
   const handlePlayVod = (item: VodItem) => {
     if (!item.streamUrl) return;
     const asChannel: Channel = { id: item.id, name: item.name, logo: item.poster, group: item.genre, url: item.streamUrl };
+    setReturnToItem(item);
     setSelectedItem(null);
     setPlayingEpisodeKey(null);
     setPlayingIsVod(true);
@@ -106,6 +107,7 @@ const Index = () => {
     if (!episode.streamUrl) return;
     const epKey = `${item.id}-S${String(seasonNumber).padStart(2, "0")}E${String(episode.episodeNum).padStart(2, "0")}`;
     const asChannel: Channel = { id: episode.id, name: `${item.name} - T${seasonNumber} E${episode.episodeNum}`, logo: item.poster, group: item.genre, url: episode.streamUrl };
+    setReturnToItem(item);
     setSelectedItem(null);
     setPlayingEpisodeKey(epKey);
     setPlayingIsVod(true);
