@@ -136,7 +136,16 @@ const Index = () => {
       return (
         <PlayerView
           channel={playingChannel}
-          onBack={() => { setPlayingChannel(null); setPlayingEpisodeKey(null); setPlayingIsVod(false); }}
+          onBack={() => {
+            setPlayingChannel(null);
+            setPlayingEpisodeKey(null);
+            setPlayingIsVod(false);
+            // Return to detail view if came from VOD
+            if (returnToItem) {
+              setSelectedItem(returnToItem);
+              setReturnToItem(null);
+            }
+          }}
           episodeKey={playingEpisodeKey}
           isVod={playingIsVod}
         />
