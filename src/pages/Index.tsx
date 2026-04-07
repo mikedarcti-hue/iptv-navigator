@@ -26,6 +26,7 @@ const Index = () => {
   const [playingEpisodeKey, setPlayingEpisodeKey] = useState<string | null>(null);
   const [playingIsVod, setPlayingIsVod] = useState(false);
   const [selectedItem, setSelectedItem] = useState<VodItem | null>(null);
+  const [returnToItem, setReturnToItem] = useState<VodItem | null>(null);
   const [deviceMode, setDeviceModeState] = useState<DeviceMode | null>(getDeviceMode());
   const [showExitDialog, setShowExitDialog] = useState(false);
   const { catalog, hasCustomCatalog } = useCatalog();
