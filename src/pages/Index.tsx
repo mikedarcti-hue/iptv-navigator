@@ -26,6 +26,7 @@ const Index = () => {
   const [playingEpisodeKey, setPlayingEpisodeKey] = useState<string | null>(null);
   const [playingIsVod, setPlayingIsVod] = useState(false);
   const [selectedItem, setSelectedItem] = useState<VodItem | null>(null);
+  const [returnToItem, setReturnToItem] = useState<VodItem | null>(null);
   const [deviceMode, setDeviceModeState] = useState<DeviceMode | null>(getDeviceMode());
   const [showExitDialog, setShowExitDialog] = useState(false);
   const { catalog, hasCustomCatalog } = useCatalog();
@@ -45,6 +46,10 @@ const Index = () => {
       setPlayingChannel(null);
       setPlayingEpisodeKey(null);
       setPlayingIsVod(false);
+      if (returnToItem) {
+        setSelectedItem(returnToItem);
+        setReturnToItem(null);
+      }
       return;
     }
     if (selectedItem) {
@@ -57,7 +62,7 @@ const Index = () => {
     }
     // On dashboard — show exit dialog
     setShowExitDialog(true);
-  }, [playingChannel, selectedItem, activeSection]);
+  }, [playingChannel, selectedItem, activeSection, returnToItem]);
 
   useEffect(() => {
     // Push a dummy history state so back button doesn't close the tab
@@ -95,6 +100,7 @@ const Index = () => {
   const handlePlayVod = (item: VodItem) => {
     if (!item.streamUrl) return;
     const asChannel: Channel = { id: item.id, name: item.name, logo: item.poster, group: item.genre, url: item.streamUrl };
+    setReturnToItem(item);
     setSelectedItem(null);
     setPlayingEpisodeKey(null);
     setPlayingIsVod(true);
@@ -105,6 +111,7 @@ const Index = () => {
     if (!episode.streamUrl) return;
     const epKey = `${item.id}-S${String(seasonNumber).padStart(2, "0")}E${String(episode.episodeNum).padStart(2, "0")}`;
     const asChannel: Channel = { id: episode.id, name: `${item.name} - T${seasonNumber} E${episode.episodeNum}`, logo: item.poster, group: item.genre, url: episode.streamUrl };
+    setReturnToItem(item);
     setSelectedItem(null);
     setPlayingEpisodeKey(epKey);
     setPlayingIsVod(true);
@@ -133,7 +140,16 @@ const Index = () => {
       return (
         <PlayerView
           channel={playingChannel}
-          onBack={() => { setPlayingChannel(null); setPlayingEpisodeKey(null); setPlayingIsVod(false); }}
+          onBack={() => {
+            setPlayingChannel(null);
+            setPlayingEpisodeKey(null);
+            setPlayingIsVod(false);
+            // Return to detail view if came from VOD
+            if (returnToItem) {
+              setSelectedItem(returnToItem);
+              setReturnToItem(null);
+            }
+          }}
           episodeKey={playingEpisodeKey}
           isVod={playingIsVod}
         />
