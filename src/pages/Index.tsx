@@ -46,6 +46,10 @@ const Index = () => {
       setPlayingChannel(null);
       setPlayingEpisodeKey(null);
       setPlayingIsVod(false);
+      if (returnToItem) {
+        setSelectedItem(returnToItem);
+        setReturnToItem(null);
+      }
       return;
     }
     if (selectedItem) {
