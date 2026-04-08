@@ -229,9 +229,9 @@ const Index = () => {
       case "live":
         return <LiveView channels={liveItems} />;
       case "movies":
-        return <VodGridView title="Filmes" items={movieItems} onPlayVod={handlePlayVod} onPlayEpisode={handlePlayEpisode} />;
+        return <VodGridView title="Filmes" items={movieItems} onPlayVod={handlePlayVod} onPlayEpisode={handlePlayEpisode} onBack={() => setActiveSection("dashboard")} />;
       case "series":
-        return <VodGridView title="Séries" items={seriesItems} onPlayVod={handlePlayVod} onPlayEpisode={handlePlayEpisode} />;
+        return <VodGridView title="Séries" items={seriesItems} onPlayVod={handlePlayVod} onPlayEpisode={handlePlayEpisode} onBack={() => setActiveSection("dashboard")} />;
       case "favorites":
         return (
           <FavoritesView
