@@ -55,7 +55,8 @@ const VodCard = ({ item, index, onClick }: VodCardProps) => {
           )}
         />
 
-        {/* Favorite button */}
+        {/* Favorite button - hidden in TV mode */}
+        {!isTvMode && (
         <button
           onClick={handleFav}
           className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10 hover:bg-black/70"
