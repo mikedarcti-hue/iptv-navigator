@@ -386,12 +386,14 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       }
       video.removeEventListener("canplay", handleCanPlay);
     };
+    const handleEnded = () => { onEnded?.(); };
     video.addEventListener("canplay", handleCanPlay);
     video.addEventListener("playing", handlePlaying);
     video.addEventListener("waiting", handleWaiting);
     video.addEventListener("error", handleVideoError);
     video.addEventListener("pause", handlePause);
     video.addEventListener("timeupdate", handleTimeUpdate);
+    video.addEventListener("ended", handleEnded);
     loadCandidate(streamCandidates[0]);
 
     return () => {
@@ -401,6 +403,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       video.removeEventListener("error", handleVideoError);
       video.removeEventListener("pause", handlePause);
       video.removeEventListener("timeupdate", handleTimeUpdate);
+      video.removeEventListener("ended", handleEnded);
       cleanupPlayers();
     };
   }, [streamCandidates, episodeKey, channel.name, isLiveStream, proxyEndpoint, supabaseKey]);
