@@ -118,7 +118,49 @@ const Index = () => {
     setPlayingEpisodeKey(epKey);
     setPlayingIsVod(true);
     setPlayingChannel(asChannel);
+    setPlayingSeriesInfo({ item, seasonNumber, episodeNum: episode.episodeNum });
   };
+
+  // Auto-next episode handler
+  const handlePlayerEnded = useCallback(() => {
+    if (playingSeriesInfo) {
+      // Find next episode in current season, or next season
+      const { item, seasonNumber, episodeNum } = playingSeriesInfo;
+      const seasons = item.seasons || [];
+      const currentSeason = seasons.find((s) => s.seasonNumber === seasonNumber);
+      if (currentSeason) {
+        const nextEp = currentSeason.episodes.find((e) => e.episodeNum === episodeNum + 1);
+        if (nextEp) {
+          handlePlayEpisode(item, nextEp, seasonNumber);
+          return;
+        }
+        // Try next season
+        const nextSeason = seasons.find((s) => s.seasonNumber === seasonNumber + 1);
+        if (nextSeason && nextSeason.episodes.length > 0) {
+          handlePlayEpisode(item, nextSeason.episodes[0], nextSeason.seasonNumber);
+          return;
+        }
+      }
+      // No more episodes - go back to detail
+      setPlayingChannel(null);
+      setPlayingSeriesInfo(null);
+      if (returnToItem) { setSelectedItem(returnToItem); setReturnToItem(null); }
+    } else if (returnToItem && returnToItem.type === "movie") {
+      // Movie ended - suggest similar movies
+      setPlayingChannel(null);
+      setPlayingIsVod(false);
+      setPlayingEpisodeKey(null);
+      // Show a random movie from same genre
+      const sameGenre = movieItems.filter((m) => m.genre === returnToItem.genre && m.id !== returnToItem.id);
+      const suggestion = sameGenre.length > 0 ? sameGenre[Math.floor(Math.random() * sameGenre.length)] : null;
+      if (suggestion) {
+        setSelectedItem(suggestion);
+      } else {
+        setSelectedItem(returnToItem);
+      }
+      setReturnToItem(null);
+    }
+  }, [playingSeriesInfo, returnToItem, movieItems]);
 
   const handleSelectItem = (item: VodItem) => {
     setSelectedItem(item);
