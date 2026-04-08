@@ -193,7 +193,7 @@ const Index = () => {
             setPlayingChannel(null);
             setPlayingEpisodeKey(null);
             setPlayingIsVod(false);
-            // Return to detail view if came from VOD
+            setPlayingSeriesInfo(null);
             if (returnToItem) {
               setSelectedItem(returnToItem);
               setReturnToItem(null);
@@ -201,6 +201,7 @@ const Index = () => {
           }}
           episodeKey={playingEpisodeKey}
           isVod={playingIsVod}
+          onEnded={handlePlayerEnded}
         />
       );
     }
