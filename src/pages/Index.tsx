@@ -29,6 +29,8 @@ const Index = () => {
   const [returnToItem, setReturnToItem] = useState<VodItem | null>(null);
   const [deviceMode, setDeviceModeState] = useState<DeviceMode | null>(getDeviceMode());
   const [showExitDialog, setShowExitDialog] = useState(false);
+  // Track current series episode info for auto-next
+  const [playingSeriesInfo, setPlayingSeriesInfo] = useState<{ item: VodItem; seasonNumber: number; episodeNum: number } | null>(null);
   const { catalog, hasCustomCatalog } = useCatalog();
 
   const liveItems = useMemo(() => (hasCustomCatalog ? catalog.live : mockLiveChannels), [catalog.live, hasCustomCatalog]);
