@@ -7,6 +7,7 @@ import { getProgressPercent } from "@/lib/watch-progress";
 import { isFavorite, toggleFavorite } from "@/lib/favorites";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
+import { useDeviceMode } from "@/pages/Index";
 
 interface VodCardProps {
   item: VodItem;
@@ -15,6 +16,8 @@ interface VodCardProps {
 }
 
 const VodCard = ({ item, index, onClick }: VodCardProps) => {
+  const deviceMode = useDeviceMode();
+  const isTvMode = deviceMode === "tv";
   const [imgLoaded, setImgLoaded] = useState(false);
   const [, setTick] = useState(0);
   const progressPercent = getProgressPercent(item.id);
