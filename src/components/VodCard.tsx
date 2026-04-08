@@ -57,12 +57,13 @@ const VodCard = ({ item, index, onClick }: VodCardProps) => {
 
         {/* Favorite button - hidden in TV mode */}
         {!isTvMode && (
-        <button
-          onClick={handleFav}
-          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10 hover:bg-black/70"
-        >
-          <Heart className={cn("w-3.5 h-3.5", fav ? "fill-primary text-primary" : "text-white")} />
-        </button>
+          <button
+            onClick={handleFav}
+            className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10 hover:bg-black/70"
+          >
+            <Heart className={cn("w-3.5 h-3.5", fav ? "fill-primary text-primary" : "text-white")} />
+          </button>
+        )}
 
         {/* Hover overlay */}
         <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
