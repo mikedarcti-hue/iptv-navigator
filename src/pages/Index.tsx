@@ -95,6 +95,51 @@ const Index = () => {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleBack]);
 
+  // Auto-next episode handler (must be before early return)
+  const handlePlayerEnded = useCallback(() => {
+    if (playingSeriesInfo) {
+      const { item, seasonNumber, episodeNum } = playingSeriesInfo;
+      const seasons = item.seasons || [];
+      const currentSeason = seasons.find((s) => s.seasonNumber === seasonNumber);
+      if (currentSeason) {
+        const nextEp = currentSeason.episodes.find((e) => e.episodeNum === episodeNum + 1);
+        if (nextEp && nextEp.streamUrl) {
+          const epKey = `${item.id}-S${String(seasonNumber).padStart(2, "0")}E${String(nextEp.episodeNum).padStart(2, "0")}`;
+          const asChannel: Channel = { id: nextEp.id, name: `${item.name} - T${seasonNumber} E${nextEp.episodeNum}`, logo: item.poster, group: item.genre, url: nextEp.streamUrl };
+          setReturnToItem(item);
+          setPlayingEpisodeKey(epKey);
+          setPlayingIsVod(true);
+          setPlayingChannel(asChannel);
+          setPlayingSeriesInfo({ item, seasonNumber, episodeNum: nextEp.episodeNum });
+          return;
+        }
+        const nextSeason = seasons.find((s) => s.seasonNumber === seasonNumber + 1);
+        if (nextSeason && nextSeason.episodes.length > 0 && nextSeason.episodes[0].streamUrl) {
+          const ep = nextSeason.episodes[0];
+          const epKey = `${item.id}-S${String(nextSeason.seasonNumber).padStart(2, "0")}E${String(ep.episodeNum).padStart(2, "0")}`;
+          const asChannel: Channel = { id: ep.id, name: `${item.name} - T${nextSeason.seasonNumber} E${ep.episodeNum}`, logo: item.poster, group: item.genre, url: ep.streamUrl };
+          setReturnToItem(item);
+          setPlayingEpisodeKey(epKey);
+          setPlayingIsVod(true);
+          setPlayingChannel(asChannel);
+          setPlayingSeriesInfo({ item, seasonNumber: nextSeason.seasonNumber, episodeNum: ep.episodeNum });
+          return;
+        }
+      }
+      setPlayingChannel(null);
+      setPlayingSeriesInfo(null);
+      if (returnToItem) { setSelectedItem(returnToItem); setReturnToItem(null); }
+    } else if (returnToItem && returnToItem.type === "movie") {
+      setPlayingChannel(null);
+      setPlayingIsVod(false);
+      setPlayingEpisodeKey(null);
+      const sameGenre = movieItems.filter((m) => m.genre === returnToItem.genre && m.id !== returnToItem.id);
+      const suggestion = sameGenre.length > 0 ? sameGenre[Math.floor(Math.random() * sameGenre.length)] : null;
+      setSelectedItem(suggestion || returnToItem);
+      setReturnToItem(null);
+    }
+  }, [playingSeriesInfo, returnToItem, movieItems]);
+
   if (!deviceMode) {
     return <DeviceModeSelector onSelect={handleSelectMode} />;
   }
@@ -107,6 +152,7 @@ const Index = () => {
     setPlayingEpisodeKey(null);
     setPlayingIsVod(true);
     setPlayingChannel(asChannel);
+    setPlayingSeriesInfo(null);
   };
 
   const handlePlayEpisode = (item: VodItem, episode: Episode, seasonNumber: number) => {
@@ -120,47 +166,6 @@ const Index = () => {
     setPlayingChannel(asChannel);
     setPlayingSeriesInfo({ item, seasonNumber, episodeNum: episode.episodeNum });
   };
-
-  // Auto-next episode handler
-  const handlePlayerEnded = useCallback(() => {
-    if (playingSeriesInfo) {
-      // Find next episode in current season, or next season
-      const { item, seasonNumber, episodeNum } = playingSeriesInfo;
-      const seasons = item.seasons || [];
-      const currentSeason = seasons.find((s) => s.seasonNumber === seasonNumber);
-      if (currentSeason) {
-        const nextEp = currentSeason.episodes.find((e) => e.episodeNum === episodeNum + 1);
-        if (nextEp) {
-          handlePlayEpisode(item, nextEp, seasonNumber);
-          return;
-        }
-        // Try next season
-        const nextSeason = seasons.find((s) => s.seasonNumber === seasonNumber + 1);
-        if (nextSeason && nextSeason.episodes.length > 0) {
-          handlePlayEpisode(item, nextSeason.episodes[0], nextSeason.seasonNumber);
-          return;
-        }
-      }
-      // No more episodes - go back to detail
-      setPlayingChannel(null);
-      setPlayingSeriesInfo(null);
-      if (returnToItem) { setSelectedItem(returnToItem); setReturnToItem(null); }
-    } else if (returnToItem && returnToItem.type === "movie") {
-      // Movie ended - suggest similar movies
-      setPlayingChannel(null);
-      setPlayingIsVod(false);
-      setPlayingEpisodeKey(null);
-      // Show a random movie from same genre
-      const sameGenre = movieItems.filter((m) => m.genre === returnToItem.genre && m.id !== returnToItem.id);
-      const suggestion = sameGenre.length > 0 ? sameGenre[Math.floor(Math.random() * sameGenre.length)] : null;
-      if (suggestion) {
-        setSelectedItem(suggestion);
-      } else {
-        setSelectedItem(returnToItem);
-      }
-      setReturnToItem(null);
-    }
-  }, [playingSeriesInfo, returnToItem, movieItems]);
 
   const handleSelectItem = (item: VodItem) => {
     setSelectedItem(item);
