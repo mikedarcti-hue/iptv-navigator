@@ -137,15 +137,31 @@ const SeriesDetailView = ({ item, onBack, onPlayEpisode }: SeriesDetailViewProps
               </Button>
             </div>
 
-            {lastProgress && (
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface border border-border mt-4">
-                <Play className="w-5 h-5 text-primary fill-primary shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">Continuar: {lastProgress.label}</p>
-                  <Progress value={(lastProgress.currentTime / lastProgress.duration) * 100} className="h-1.5 mt-1.5" />
-                </div>
-              </div>
-            )}
+            {lastProgress && (() => {
+              // Parse season/episode from itemId like "seriesId-S01E03"
+              const match = lastProgress.itemId.match(/-S(\d+)E(\d+)$/);
+              const lpSeasonNum = match ? parseInt(match[1], 10) : null;
+              const lpEpisodeNum = match ? parseInt(match[2], 10) : null;
+              const lpSeason = lpSeasonNum != null ? seasons.find(s => s.seasonNumber === lpSeasonNum) : null;
+              const lpEpisode = lpSeason && lpEpisodeNum != null ? lpSeason.episodes.find(e => e.episodeNum === lpEpisodeNum) : null;
+
+              return (
+                <button
+                  onClick={() => {
+                    if (lpEpisode && lpSeasonNum != null) {
+                      onPlayEpisode(item, lpEpisode, lpSeasonNum);
+                    }
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/30 mt-4 transition-all text-left group"
+                >
+                  <Play className="w-5 h-5 text-primary fill-primary shrink-0 group-hover:scale-110 transition-transform" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">Continuar: {lastProgress.label}</p>
+                    <Progress value={(lastProgress.currentTime / lastProgress.duration) * 100} className="h-1.5 mt-1.5" />
+                  </div>
+                </button>
+              );
+            })()}
           </motion.div>
         </div>
       </div>
