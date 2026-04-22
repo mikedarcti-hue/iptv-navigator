@@ -24,6 +24,21 @@ const DashboardView = ({ onNavigate, onPlayChannel, onPlayVod, onSelectItem, liv
     .sort((a, b) => (b.rating || 0) - (a.rating || 0))
     .slice(0, 8);
 
+  // "Em Alta" — Netflix-style trending mix of movies & series, deterministic per session
+  const trendingItems = useMemo(() => {
+    const pool = [...movieItems, ...seriesItems].filter((i) => i.poster);
+    if (pool.length === 0) return [];
+    // Prefer items with rating, then shuffle within rating tiers for variety
+    const rated = pool.filter((i) => (i.rating || 0) > 0).sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    const unrated = pool.filter((i) => !i.rating);
+    const seed = Date.now() % 1000;
+    const shuffled = [...rated.slice(0, 60), ...unrated.slice(0, 40)]
+      .map((item, idx) => ({ item, sort: ((idx + seed) * 9301 + 49297) % 233280 }))
+      .sort((a, b) => a.sort - b.sort)
+      .map((x) => x.item);
+    return shuffled.slice(0, 20);
+  }, [movieItems, seriesItems]);
+
   const handlePlay = (item: VodItem) => {
     if (item.streamUrl) onPlayVod?.(item);
     else onSelectItem?.(item);
