@@ -421,6 +421,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   }, [streamCandidates, episodeKey, channel.name, isLiveStream, proxyEndpoint, supabaseKey]);
 
   useEffect(() => { if (videoRef.current) videoRef.current.muted = muted; }, [muted]);
+  useEffect(() => { setSkipIntroDismissed(false); }, [episodeKey, channel.id]);
   useEffect(() => { return () => { clearTimeout(hideTimerRef.current); clearTimeout(retryTimerRef.current); }; }, []);
   useEffect(() => {
     const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
