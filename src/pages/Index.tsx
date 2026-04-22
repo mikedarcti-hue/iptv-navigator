@@ -35,6 +35,9 @@ const Index = () => {
   const [playingSeriesInfo, setPlayingSeriesInfo] = useState<{ item: VodItem; seasonNumber: number; episodeNum: number } | null>(null);
   const { catalog, hasCustomCatalog } = useCatalog();
 
+  // Enable D-pad spatial navigation in TV mode
+  useSpatialNavigation(deviceMode === "tv");
+
   const liveItems = useMemo(() => (hasCustomCatalog ? catalog.live : mockLiveChannels), [catalog.live, hasCustomCatalog]);
   const movieItems = useMemo(() => (hasCustomCatalog ? catalog.movies : mockMovies), [catalog.movies, hasCustomCatalog]);
   const seriesItems = useMemo(() => (hasCustomCatalog ? catalog.series : mockSeries), [catalog.series, hasCustomCatalog]);
