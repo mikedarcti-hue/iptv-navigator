@@ -201,6 +201,7 @@ const Index = () => {
           }}
           episodeKey={playingEpisodeKey}
           isVod={playingIsVod}
+          isSeries={!!playingSeriesInfo}
           onEnded={handlePlayerEnded}
         />
       );
