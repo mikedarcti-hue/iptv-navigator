@@ -16,6 +16,7 @@ import {
   Unlock,
   RectangleHorizontal,
   FastForward,
+  X,
 } from "lucide-react";
 import Hls from "hls.js";
 import mpegts from "mpegts.js";
@@ -37,9 +38,12 @@ interface PlayerViewProps {
   isVod?: boolean;
   isSeries?: boolean;
   onEnded?: () => void;
+  isMini?: boolean;
+  onExpand?: () => void;
+  onCloseMini?: () => void;
 }
 
-const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBack, episodeKey, isVod = false, isSeries = false, onEnded }, ref) => {
+const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBack, episodeKey, isVod = false, isSeries = false, onEnded, isMini = false, onExpand, onCloseMini }, ref) => {
   const deviceMode = useDeviceMode();
   const isTvMode = deviceMode === "tv";
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -65,6 +69,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const [bufferLow, setBufferLow] = useState(false);
   const [screenLocked, setScreenLocked] = useState(false);
   const [aspectMode, setAspectMode] = useState<AspectMode>("contain");
+  const [skipIntroDismissed, setSkipIntroDismissed] = useState(false);
 
   // Netflix-style double tap seek
   const [seekIndicator, setSeekIndicator] = useState<"left" | "right" | null>(null);
@@ -416,6 +421,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   }, [streamCandidates, episodeKey, channel.name, isLiveStream, proxyEndpoint, supabaseKey]);
 
   useEffect(() => { if (videoRef.current) videoRef.current.muted = muted; }, [muted]);
+  useEffect(() => { setSkipIntroDismissed(false); }, [episodeKey, channel.id]);
   useEffect(() => { return () => { clearTimeout(hideTimerRef.current); clearTimeout(retryTimerRef.current); }; }, []);
   useEffect(() => {
     const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
@@ -468,23 +474,10 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     });
   };
 
-  // Try to enter Picture-in-Picture before navigating away — keeps a mini-player visible
-  const handleBackWithPip = useCallback(async () => {
-    const video = videoRef.current;
-    let pipActivated = false;
-    if (!isTvMode && video && !error && document.pictureInPictureEnabled && !(video as any).disablePictureInPicture) {
-      try {
-        if (document.pictureInPictureElement !== video) {
-          await (video as any).requestPictureInPicture();
-          pipActivated = true;
-        }
-      } catch {
-        pipActivated = false;
-      }
-    }
-    // If PiP activated, stay in player (mini floats); otherwise navigate back
-    if (!pipActivated) onBack();
-  }, [isTvMode, error, onBack]);
+  // Back action — Index decides whether to minimize (mini-player) or close completely
+  const handleBackWithPip = useCallback(() => {
+    onBack();
+  }, [onBack]);
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
     const video = videoRef.current;
@@ -557,17 +550,24 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const videoObjectFit = aspectMode === "contain" ? "object-contain" : aspectMode === "cover" ? "object-cover" : "object-fill";
 
   return (
-    <div ref={ref} className="space-y-4">
+    <div
+      ref={ref}
+      className={cn(
+        "space-y-4",
+        isMini && "fixed bottom-20 right-3 md:bottom-6 md:right-6 z-[9998] w-64 sm:w-80 space-y-0 shadow-2xl"
+      )}
+    >
       <div
         ref={containerRef}
         tabIndex={0}
         className={cn(
-          "relative w-full bg-black rounded-xl overflow-hidden card-shadow group focus:outline-none",
-          isFullscreen ? "fixed inset-0 z-[9999] rounded-none" : "aspect-video"
+          "relative w-full bg-black overflow-hidden card-shadow group focus:outline-none",
+          isMini ? "rounded-lg aspect-video cursor-pointer ring-2 ring-primary/60" : "rounded-xl",
+          isFullscreen ? "fixed inset-0 z-[9999] rounded-none" : !isMini && "aspect-video"
         )}
-        onMouseMove={!screenLocked ? resetHideTimer : undefined}
-        onMouseLeave={() => !screenLocked && setShowControls(false)}
-        onClick={handleVideoAreaTap}
+        onMouseMove={!screenLocked && !isMini ? resetHideTimer : undefined}
+        onMouseLeave={() => !screenLocked && !isMini && setShowControls(false)}
+        onClick={isMini ? (e) => { e.stopPropagation(); onExpand?.(); } : handleVideoAreaTap}
       >
         <video
           ref={videoRef}
@@ -577,6 +577,16 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           controls={false}
         />
 
+        {/* Mini player close button */}
+        {isMini && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onCloseMini?.(); }}
+            className="absolute top-1 right-1 w-7 h-7 rounded-full bg-black/70 hover:bg-destructive flex items-center justify-center text-white z-30"
+            title="Fechar"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
         {/* Netflix-style seek indicators */}
         {seekIndicator === "left" && (
           <div className="absolute left-0 top-0 bottom-0 w-1/3 flex items-center justify-center pointer-events-none animate-pulse">
@@ -595,15 +605,17 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           </div>
         )}
 
-        {/* Skip intro button (series only, between 5s and 90s) */}
-        {isSeries && !isLive && currentTime > 5 && currentTime < 90 && (
+        {/* Skip intro button (series only, between 5s and 90s) — fixed position, dismisses on click */}
+        {isSeries && !isLive && !skipIntroDismissed && currentTime > 5 && currentTime < 90 && !isMini && (
           <button
             onClick={(e) => {
               e.stopPropagation();
               const v = videoRef.current;
               if (v) v.currentTime = Math.min(v.duration || 95, 95);
+              setSkipIntroDismissed(true);
             }}
-            className="absolute bottom-24 right-4 z-20 flex items-center gap-2 px-4 py-2.5 rounded-lg bg-black/80 hover:bg-primary text-white text-sm font-semibold border border-white/20 backdrop-blur-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary tv-focus animate-fade-in"
+            style={{ position: "absolute", bottom: "6rem", right: "1rem" }}
+            className="z-20 flex items-center gap-2 px-4 py-2.5 rounded-lg bg-black/80 hover:bg-primary text-white text-sm font-semibold border border-white/20 backdrop-blur-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary tv-focus animate-fade-in"
           >
             <FastForward className="w-4 h-4" />
             Pular abertura
@@ -637,7 +649,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         )}
 
         {/* Top bar */}
-        {!screenLocked && (
+        {!screenLocked && !isMini && (
           <div className={cn(
             "absolute top-0 inset-x-0 p-4 bg-gradient-to-b from-black/80 to-transparent transition-opacity duration-300 z-10",
             showControls ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -661,7 +673,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         )}
 
         {/* Bottom bar */}
-        {!screenLocked && (
+        {!screenLocked && !isMini && (
           <div className={cn(
             "absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-300 z-10",
             showControls ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -732,6 +744,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         )}
       </div>
 
+      {!isMini && (
       <div>
         <h1 className="text-xl font-bold text-foreground">{channel.name}</h1>
         <p className="text-sm text-muted-foreground">
@@ -739,6 +752,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           {channel.epgNow ? ` • ${channel.epgNow}` : ""}
         </p>
       </div>
+      )}
     </div>
   );
 });

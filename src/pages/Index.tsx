@@ -29,6 +29,7 @@ const Index = () => {
   const [returnToItem, setReturnToItem] = useState<VodItem | null>(null);
   const [deviceMode, setDeviceModeState] = useState<DeviceMode | null>(getDeviceMode());
   const [showExitDialog, setShowExitDialog] = useState(false);
+  const [isMiniPlayer, setIsMiniPlayer] = useState(false);
   // Track current series episode info for auto-next
   const [playingSeriesInfo, setPlayingSeriesInfo] = useState<{ item: VodItem; seasonNumber: number; episodeNum: number } | null>(null);
   const { catalog, hasCustomCatalog } = useCatalog();
@@ -44,13 +45,13 @@ const Index = () => {
 
   // Back button / popstate handling
   const handleBack = useCallback(() => {
-    if (playingChannel) {
-      setPlayingChannel(null);
-      setPlayingEpisodeKey(null);
-      setPlayingIsVod(false);
+    if (playingChannel && !isMiniPlayer) {
+      // Minimize to mini-player instead of closing
+      setIsMiniPlayer(true);
       if (returnToItem) {
         setSelectedItem(returnToItem);
-        setReturnToItem(null);
+      } else if (!playingIsVod) {
+        setActiveSection("live");
       }
       return;
     }
@@ -64,7 +65,7 @@ const Index = () => {
     }
     // On dashboard — show exit dialog
     setShowExitDialog(true);
-  }, [playingChannel, selectedItem, activeSection, returnToItem]);
+  }, [playingChannel, isMiniPlayer, selectedItem, activeSection, returnToItem, playingIsVod]);
 
   useEffect(() => {
     // Push a dummy history state so back button doesn't close the tab
@@ -153,6 +154,7 @@ const Index = () => {
     setPlayingIsVod(true);
     setPlayingChannel(asChannel);
     setPlayingSeriesInfo(null);
+    setIsMiniPlayer(false);
   };
 
   const handlePlayEpisode = (item: VodItem, episode: Episode, seasonNumber: number) => {
@@ -165,6 +167,7 @@ const Index = () => {
     setPlayingIsVod(true);
     setPlayingChannel(asChannel);
     setPlayingSeriesInfo({ item, seasonNumber, episodeNum: episode.episodeNum });
+    setIsMiniPlayer(false);
   };
 
   const handleSelectItem = (item: VodItem) => {
@@ -172,7 +175,8 @@ const Index = () => {
   };
 
   const handleSectionChange = (section: string) => {
-    setPlayingChannel(null);
+    // If full player is open, minimize to keep playback alive while navigating
+    if (playingChannel && !isMiniPlayer) setIsMiniPlayer(true);
     setSelectedItem(null);
     setActiveSection(section);
   };
@@ -181,24 +185,40 @@ const Index = () => {
     setSelectedItem(null);
     setPlayingEpisodeKey(null);
     setPlayingIsVod(false);
+    setIsMiniPlayer(false);
     setPlayingChannel(channel);
   };
 
+  const closePlayerCompletely = () => {
+    setPlayingChannel(null);
+    setPlayingEpisodeKey(null);
+    setPlayingIsVod(false);
+    setPlayingSeriesInfo(null);
+    setIsMiniPlayer(false);
+    setReturnToItem(null);
+  };
+
+  const minimizePlayer = () => {
+    // Switch to mini-player overlay; keep playback alive
+    setIsMiniPlayer(true);
+    if (returnToItem) {
+      setSelectedItem(returnToItem);
+    } else {
+      // For live channels, return to live section
+      if (!playingIsVod) setActiveSection("live");
+    }
+  };
+
+  const expandPlayer = () => {
+    setIsMiniPlayer(false);
+  };
+
   const renderContent = () => {
-    if (playingChannel) {
+    if (playingChannel && !isMiniPlayer) {
       return (
         <PlayerView
           channel={playingChannel}
-          onBack={() => {
-            setPlayingChannel(null);
-            setPlayingEpisodeKey(null);
-            setPlayingIsVod(false);
-            setPlayingSeriesInfo(null);
-            if (returnToItem) {
-              setSelectedItem(returnToItem);
-              setReturnToItem(null);
-            }
-          }}
+          onBack={minimizePlayer}
           episodeKey={playingEpisodeKey}
           isVod={playingIsVod}
           isSeries={!!playingSeriesInfo}
@@ -278,6 +298,21 @@ const Index = () => {
 
         {deviceMode === "mobile" && (
           <BottomNav activeSection={activeSection} onSectionChange={handleSectionChange} />
+        )}
+
+        {/* Floating mini-player — keeps content playing while user navigates */}
+        {playingChannel && isMiniPlayer && (
+          <PlayerView
+            channel={playingChannel}
+            onBack={closePlayerCompletely}
+            episodeKey={playingEpisodeKey}
+            isVod={playingIsVod}
+            isSeries={!!playingSeriesInfo}
+            onEnded={handlePlayerEnded}
+            isMini
+            onExpand={expandPlayer}
+            onCloseMini={closePlayerCompletely}
+          />
         )}
 
         {showExitDialog && (
