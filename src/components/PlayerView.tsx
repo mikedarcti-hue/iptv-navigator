@@ -765,6 +765,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           {channel.epgNow ? ` • ${channel.epgNow}` : ""}
         </p>
       </div>
+      )}
     </div>
   );
 });
