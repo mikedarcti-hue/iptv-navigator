@@ -154,6 +154,7 @@ const Index = () => {
     setPlayingIsVod(true);
     setPlayingChannel(asChannel);
     setPlayingSeriesInfo(null);
+    setIsMiniPlayer(false);
   };
 
   const handlePlayEpisode = (item: VodItem, episode: Episode, seasonNumber: number) => {
