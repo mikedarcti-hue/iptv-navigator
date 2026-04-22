@@ -563,17 +563,24 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const videoObjectFit = aspectMode === "contain" ? "object-contain" : aspectMode === "cover" ? "object-cover" : "object-fill";
 
   return (
-    <div ref={ref} className="space-y-4">
+    <div
+      ref={ref}
+      className={cn(
+        "space-y-4",
+        isMini && "fixed bottom-20 right-3 md:bottom-6 md:right-6 z-[9998] w-64 sm:w-80 space-y-0 shadow-2xl"
+      )}
+    >
       <div
         ref={containerRef}
         tabIndex={0}
         className={cn(
-          "relative w-full bg-black rounded-xl overflow-hidden card-shadow group focus:outline-none",
-          isFullscreen ? "fixed inset-0 z-[9999] rounded-none" : "aspect-video"
+          "relative w-full bg-black overflow-hidden card-shadow group focus:outline-none",
+          isMini ? "rounded-lg aspect-video cursor-pointer ring-2 ring-primary/60" : "rounded-xl",
+          isFullscreen ? "fixed inset-0 z-[9999] rounded-none" : !isMini && "aspect-video"
         )}
-        onMouseMove={!screenLocked ? resetHideTimer : undefined}
-        onMouseLeave={() => !screenLocked && setShowControls(false)}
-        onClick={handleVideoAreaTap}
+        onMouseMove={!screenLocked && !isMini ? resetHideTimer : undefined}
+        onMouseLeave={() => !screenLocked && !isMini && setShowControls(false)}
+        onClick={isMini ? (e) => { e.stopPropagation(); onExpand?.(); } : handleVideoAreaTap}
       >
         <video
           ref={videoRef}
