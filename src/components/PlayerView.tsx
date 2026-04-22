@@ -590,6 +590,16 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           controls={false}
         />
 
+        {/* Mini player close button */}
+        {isMini && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onCloseMini?.(); }}
+            className="absolute top-1 right-1 w-7 h-7 rounded-full bg-black/70 hover:bg-destructive flex items-center justify-center text-white z-30"
+            title="Fechar"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
         {/* Netflix-style seek indicators */}
         {seekIndicator === "left" && (
           <div className="absolute left-0 top-0 bottom-0 w-1/3 flex items-center justify-center pointer-events-none animate-pulse">
