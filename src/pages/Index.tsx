@@ -15,6 +15,7 @@ import { liveChannels as mockLiveChannels, movies as mockMovies, series as mockS
 import type { Channel, VodItem, Episode } from "@/lib/mock-data";
 import { useCatalog } from "@/hooks/use-catalog";
 import { getDeviceMode, setDeviceMode, type DeviceMode } from "@/lib/device-mode";
+import { useSpatialNavigation } from "@/hooks/use-spatial-navigation";
 
 export const DeviceModeContext = createContext<DeviceMode>("mobile");
 export const useDeviceMode = () => useContext(DeviceModeContext);
@@ -33,6 +34,9 @@ const Index = () => {
   // Track current series episode info for auto-next
   const [playingSeriesInfo, setPlayingSeriesInfo] = useState<{ item: VodItem; seasonNumber: number; episodeNum: number } | null>(null);
   const { catalog, hasCustomCatalog } = useCatalog();
+
+  // Enable D-pad spatial navigation in TV mode
+  useSpatialNavigation(deviceMode === "tv");
 
   const liveItems = useMemo(() => (hasCustomCatalog ? catalog.live : mockLiveChannels), [catalog.live, hasCustomCatalog]);
   const movieItems = useMemo(() => (hasCustomCatalog ? catalog.movies : mockMovies), [catalog.movies, hasCustomCatalog]);
