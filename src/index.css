@@ -132,14 +132,48 @@
     position: relative;
   }
 
-  /* TV mode: larger focus targets */
+  /* ============ TV / TV BOX MODE ============ */
+  /* Larger focus targets and visible outlines for remote control nav */
   [data-device="tv"] .tv-focus {
     min-height: 48px;
   }
 
-  [data-device="tv"] *:focus {
-    outline: 3px solid hsl(var(--primary));
-    outline-offset: 3px;
-    box-shadow: 0 0 16px hsl(var(--primary) / 0.5);
+  [data-device="tv"] *:focus,
+  [data-device="tv"] *:focus-visible {
+    outline: 4px solid hsl(var(--primary));
+    outline-offset: 4px;
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.6);
+    border-radius: var(--radius);
+    z-index: 2;
+    position: relative;
+    transform: scale(1.04);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  /* Larger base typography on TV / 4K screens */
+  [data-device="tv"] {
+    font-size: 17px;
+  }
+  @media (min-width: 1920px) {
+    [data-device="tv"] {
+      font-size: 19px;
+    }
+  }
+  @media (min-width: 2560px) {
+    [data-device="tv"] {
+      font-size: 22px;
+    }
+  }
+
+  /* Hide scrollbars in TV mode (no mouse) */
+  [data-device="tv"] ::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Bigger tap/focus padding for TV */
+  [data-device="tv"] button,
+  [data-device="tv"] a,
+  [data-device="tv"] [role="button"] {
+    scroll-margin: 120px;
   }
 }
