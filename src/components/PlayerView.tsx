@@ -35,10 +35,11 @@ interface PlayerViewProps {
   onBack: () => void;
   episodeKey?: string | null;
   isVod?: boolean;
+  isSeries?: boolean;
   onEnded?: () => void;
 }
 
-const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBack, episodeKey, isVod = false, onEnded }, ref) => {
+const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBack, episodeKey, isVod = false, isSeries = false, onEnded }, ref) => {
   const deviceMode = useDeviceMode();
   const isTvMode = deviceMode === "tv";
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -434,9 +435,20 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         if (target.requestFullscreen) await target.requestFullscreen();
         else if ((target as any).webkitRequestFullscreen) (target as any).webkitRequestFullscreen();
         else if ((target as any).msRequestFullscreen) (target as any).msRequestFullscreen();
+        // Lock orientation to landscape on mobile
+        try {
+          const orientation: any = (screen as any).orientation;
+          if (orientation && typeof orientation.lock === "function") {
+            await orientation.lock("landscape").catch(() => {});
+          }
+        } catch {}
       } else {
         if (document.exitFullscreen) await document.exitFullscreen();
         else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
+        try {
+          const orientation: any = (screen as any).orientation;
+          if (orientation && typeof orientation.unlock === "function") orientation.unlock();
+        } catch {}
       }
     } catch (e) { console.warn("[DARK IPTV] Fullscreen error:", e); }
   };
