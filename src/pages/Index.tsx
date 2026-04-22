@@ -45,13 +45,13 @@ const Index = () => {
 
   // Back button / popstate handling
   const handleBack = useCallback(() => {
-    if (playingChannel) {
-      setPlayingChannel(null);
-      setPlayingEpisodeKey(null);
-      setPlayingIsVod(false);
+    if (playingChannel && !isMiniPlayer) {
+      // Minimize to mini-player instead of closing
+      setIsMiniPlayer(true);
       if (returnToItem) {
         setSelectedItem(returnToItem);
-        setReturnToItem(null);
+      } else if (!playingIsVod) {
+        setActiveSection("live");
       }
       return;
     }
@@ -65,7 +65,7 @@ const Index = () => {
     }
     // On dashboard — show exit dialog
     setShowExitDialog(true);
-  }, [playingChannel, selectedItem, activeSection, returnToItem]);
+  }, [playingChannel, isMiniPlayer, selectedItem, activeSection, returnToItem, playingIsVod]);
 
   useEffect(() => {
     // Push a dummy history state so back button doesn't close the tab
