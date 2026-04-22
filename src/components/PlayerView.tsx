@@ -640,7 +640,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
             showControls ? "opacity-100" : "opacity-0 pointer-events-none"
           )}>
             <div className="flex items-center gap-3">
-              <button onClick={(e) => { e.stopPropagation(); onBack(); }}
+              <button onClick={(e) => { e.stopPropagation(); handleBackWithPip(); }}
                 className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
                 <ArrowLeft className="w-5 h-5 text-white" />
               </button>
