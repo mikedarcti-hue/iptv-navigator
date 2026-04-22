@@ -317,7 +317,17 @@ const Index = () => {
 
         {showExitDialog && (
           <ExitDialog
-            onConfirm={() => window.close()}
+            onConfirm={async () => {
+              try {
+                const { App } = await import("@capacitor/app");
+                await App.exitApp();
+              } catch {
+                // Web fallback
+                try { window.close(); } catch {}
+                // Some browsers block window.close() — go back in history as fallback
+                setTimeout(() => window.history.back(), 100);
+              }
+            }}
             onCancel={() => setShowExitDialog(false)}
           />
         )}

@@ -19,6 +19,7 @@ const VodCard = ({ item, index, onClick }: VodCardProps) => {
   const deviceMode = useDeviceMode();
   const isTvMode = deviceMode === "tv";
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const [, setTick] = useState(0);
   const progressPercent = getProgressPercent(item.id);
   const fav = isFavorite(item.id);
@@ -30,6 +31,11 @@ const VodCard = ({ item, index, onClick }: VodCardProps) => {
     toast.success(added ? "Adicionado aos favoritos" : "Removido dos favoritos");
   };
 
+  // Validate poster URL — reject obvious non-poster sources (stream snapshots, etc.)
+  const validPoster = item.poster && /^https?:\/\//i.test(item.poster) && !/\.(ts|m3u8|mp4|mkv)(\?|$)/i.test(item.poster);
+  const showFallback = !validPoster || imgError;
+  const initials = item.name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("");
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -40,20 +46,32 @@ const VodCard = ({ item, index, onClick }: VodCardProps) => {
       onClick={() => onClick?.(item)}
     >
       <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-card">
-        {!imgLoaded && (
-          <div className="absolute inset-0 bg-gradient-to-r from-card via-surface-hover to-card animate-shimmer bg-[length:200%_100%]" />
+        {showFallback ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-primary/30 via-card to-secondary/40 p-3 text-center">
+            <span className="text-3xl font-black text-foreground/80">{initials}</span>
+            <span className="mt-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+              {item.type === "series" ? "Série" : "Filme"}
+            </span>
+          </div>
+        ) : (
+          <>
+            {!imgLoaded && (
+              <div className="absolute inset-0 bg-gradient-to-r from-card via-surface-hover to-card animate-shimmer bg-[length:200%_100%]" />
+            )}
+            <img
+              src={item.poster}
+              alt={item.name}
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setImgError(true)}
+              loading="lazy"
+              className={cn(
+                "w-full h-full object-cover transition-all duration-500",
+                "group-hover:scale-110 group-hover:brightness-50",
+                imgLoaded ? "opacity-100" : "opacity-0"
+              )}
+            />
+          </>
         )}
-        <img
-          src={item.poster}
-          alt={item.name}
-          onLoad={() => setImgLoaded(true)}
-          loading="lazy"
-          className={cn(
-            "w-full h-full object-cover transition-all duration-500",
-            "group-hover:scale-110 group-hover:brightness-50",
-            imgLoaded ? "opacity-100" : "opacity-0"
-          )}
-        />
 
         {/* Favorite button - hidden in TV mode */}
         {!isTvMode && (
