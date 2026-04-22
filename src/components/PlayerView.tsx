@@ -15,6 +15,7 @@ import {
   Lock,
   Unlock,
   RectangleHorizontal,
+  FastForward,
 } from "lucide-react";
 import Hls from "hls.js";
 import mpegts from "mpegts.js";
@@ -34,10 +35,11 @@ interface PlayerViewProps {
   onBack: () => void;
   episodeKey?: string | null;
   isVod?: boolean;
+  isSeries?: boolean;
   onEnded?: () => void;
 }
 
-const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBack, episodeKey, isVod = false, onEnded }, ref) => {
+const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBack, episodeKey, isVod = false, isSeries = false, onEnded }, ref) => {
   const deviceMode = useDeviceMode();
   const isTvMode = deviceMode === "tv";
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -50,7 +52,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const fragRetryCount = useRef(0);
   const maxFragRetries = 3;
 
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -213,11 +215,16 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     };
 
     const tryAutoplay = (v: HTMLVideoElement) => {
-      v.muted = true;
+      // Try unmuted first (per user request — start with audio)
+      v.muted = false;
       const playPromise = v.play();
       if (playPromise) {
         playPromise.catch(() => {
-          failWithFallback("O navegador bloqueou a reprodução automática");
+          // Browser blocked unmuted autoplay — fall back to muted
+          v.muted = true;
+          setMuted(true);
+          const retry = v.play();
+          if (retry) retry.catch(() => failWithFallback("O navegador bloqueou a reprodução automática"));
         });
       }
     };
@@ -428,9 +435,20 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         if (target.requestFullscreen) await target.requestFullscreen();
         else if ((target as any).webkitRequestFullscreen) (target as any).webkitRequestFullscreen();
         else if ((target as any).msRequestFullscreen) (target as any).msRequestFullscreen();
+        // Lock orientation to landscape on mobile
+        try {
+          const orientation: any = (screen as any).orientation;
+          if (orientation && typeof orientation.lock === "function") {
+            await orientation.lock("landscape").catch(() => {});
+          }
+        } catch {}
       } else {
         if (document.exitFullscreen) await document.exitFullscreen();
         else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
+        try {
+          const orientation: any = (screen as any).orientation;
+          if (orientation && typeof orientation.unlock === "function") orientation.unlock();
+        } catch {}
       }
     } catch (e) { console.warn("[DARK IPTV] Fullscreen error:", e); }
   };
@@ -449,6 +467,24 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       return ASPECT_MODES[(idx + 1) % ASPECT_MODES.length];
     });
   };
+
+  // Try to enter Picture-in-Picture before navigating away — keeps a mini-player visible
+  const handleBackWithPip = useCallback(async () => {
+    const video = videoRef.current;
+    let pipActivated = false;
+    if (!isTvMode && video && !error && document.pictureInPictureEnabled && !(video as any).disablePictureInPicture) {
+      try {
+        if (document.pictureInPictureElement !== video) {
+          await (video as any).requestPictureInPicture();
+          pipActivated = true;
+        }
+      } catch {
+        pipActivated = false;
+      }
+    }
+    // If PiP activated, stay in player (mini floats); otherwise navigate back
+    if (!pipActivated) onBack();
+  }, [isTvMode, error, onBack]);
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
     const video = videoRef.current;
@@ -491,7 +527,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
             if (document.activeElement && document.activeElement !== containerRef.current && document.activeElement.tagName === "BUTTON") (document.activeElement as HTMLButtonElement).click();
             else togglePlay(); break;
           case "Escape": case "Backspace": case "GoBack": case "XF86Back": e.preventDefault();
-            if (document.fullscreenElement) document.exitFullscreen(); else onBack(); break;
+            if (document.fullscreenElement) document.exitFullscreen(); else handleBackWithPip(); break;
         }
         return;
       }
@@ -502,14 +538,14 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         case "ArrowDown": e.preventDefault(); video.volume = Math.max(0, video.volume - 0.1); break;
         case "Enter": case " ": e.preventDefault(); togglePlay(); break;
         case "Escape": case "Backspace": case "GoBack": case "XF86Back": e.preventDefault();
-          if (document.fullscreenElement) document.exitFullscreen(); else onBack(); break;
+          if (document.fullscreenElement) document.exitFullscreen(); else handleBackWithPip(); break;
         case "f": e.preventDefault(); toggleFullscreen(); break;
         case "m": e.preventDefault(); setMuted((c) => !c); break;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isLive, onBack, resetHideTimer, isTvMode]);
+  }, [isLive, onBack, handleBackWithPip, resetHideTimer, isTvMode]);
 
   useEffect(() => {
     if (isTvMode) {
@@ -538,7 +574,6 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           className={cn("w-full h-full transition-all", videoObjectFit)}
           autoPlay
           playsInline
-          muted
           controls={false}
         />
 
@@ -558,6 +593,21 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
               <span className="text-xs font-bold">10s</span>
             </div>
           </div>
+        )}
+
+        {/* Skip intro button (series only, between 5s and 90s) */}
+        {isSeries && !isLive && currentTime > 5 && currentTime < 90 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const v = videoRef.current;
+              if (v) v.currentTime = Math.min(v.duration || 95, 95);
+            }}
+            className="absolute bottom-24 right-4 z-20 flex items-center gap-2 px-4 py-2.5 rounded-lg bg-black/80 hover:bg-primary text-white text-sm font-semibold border border-white/20 backdrop-blur-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary tv-focus animate-fade-in"
+          >
+            <FastForward className="w-4 h-4" />
+            Pular abertura
+          </button>
         )}
 
         {/* Screen lock overlay */}
@@ -593,7 +643,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
             showControls ? "opacity-100" : "opacity-0 pointer-events-none"
           )}>
             <div className="flex items-center gap-3">
-              <button onClick={(e) => { e.stopPropagation(); onBack(); }}
+              <button onClick={(e) => { e.stopPropagation(); handleBackWithPip(); }}
                 className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
                 <ArrowLeft className="w-5 h-5 text-white" />
               </button>
