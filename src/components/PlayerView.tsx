@@ -15,6 +15,7 @@ import {
   Lock,
   Unlock,
   RectangleHorizontal,
+  FastForward,
 } from "lucide-react";
 import Hls from "hls.js";
 import mpegts from "mpegts.js";
