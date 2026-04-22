@@ -524,7 +524,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
             if (document.activeElement && document.activeElement !== containerRef.current && document.activeElement.tagName === "BUTTON") (document.activeElement as HTMLButtonElement).click();
             else togglePlay(); break;
           case "Escape": case "Backspace": case "GoBack": case "XF86Back": e.preventDefault();
-            if (document.fullscreenElement) document.exitFullscreen(); else onBack(); break;
+            if (document.fullscreenElement) document.exitFullscreen(); else handleBackWithPip(); break;
         }
         return;
       }
@@ -535,7 +535,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         case "ArrowDown": e.preventDefault(); video.volume = Math.max(0, video.volume - 0.1); break;
         case "Enter": case " ": e.preventDefault(); togglePlay(); break;
         case "Escape": case "Backspace": case "GoBack": case "XF86Back": e.preventDefault();
-          if (document.fullscreenElement) document.exitFullscreen(); else onBack(); break;
+          if (document.fullscreenElement) document.exitFullscreen(); else handleBackWithPip(); break;
         case "f": e.preventDefault(); toggleFullscreen(); break;
         case "m": e.preventDefault(); setMuted((c) => !c); break;
       }
