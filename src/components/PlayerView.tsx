@@ -37,9 +37,12 @@ interface PlayerViewProps {
   isVod?: boolean;
   isSeries?: boolean;
   onEnded?: () => void;
+  isMini?: boolean;
+  onExpand?: () => void;
+  onCloseMini?: () => void;
 }
 
-const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBack, episodeKey, isVod = false, isSeries = false, onEnded }, ref) => {
+const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBack, episodeKey, isVod = false, isSeries = false, onEnded, isMini = false, onExpand, onCloseMini }, ref) => {
   const deviceMode = useDeviceMode();
   const isTvMode = deviceMode === "tv";
   const videoRef = useRef<HTMLVideoElement>(null);
