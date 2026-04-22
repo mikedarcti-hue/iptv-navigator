@@ -610,15 +610,36 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           controls={false}
         />
 
-        {/* Mini player close button */}
+        {/* Mini player controls */}
         {isMini && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onCloseMini?.(); }}
-            className="absolute top-1 right-1 w-7 h-7 rounded-full bg-black/70 hover:bg-destructive flex items-center justify-center text-white z-30"
-            title="Fechar"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <>
+            <div
+              className="absolute inset-x-0 bottom-0 z-30 flex items-center justify-center gap-2 bg-gradient-to-t from-black/80 to-transparent px-2 py-1.5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white"
+                title={paused ? "Reproduzir" : "Pausar"}
+              >
+                {paused ? <Play className="w-4 h-4 fill-white" /> : <Pause className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onExpand?.(); }}
+                className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white"
+                title="Maximizar"
+              >
+                <Maximize className="w-4 h-4" />
+              </button>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); onCloseMini?.(); }}
+              className="absolute top-1 right-1 w-7 h-7 rounded-full bg-black/70 hover:bg-destructive flex items-center justify-center text-white z-30"
+              title="Fechar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </>
         )}
         {/* Netflix-style seek indicators */}
         {seekIndicator === "left" && (
