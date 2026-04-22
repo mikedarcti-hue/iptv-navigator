@@ -173,7 +173,8 @@ const Index = () => {
   };
 
   const handleSectionChange = (section: string) => {
-    setPlayingChannel(null);
+    // If full player is open, minimize to keep playback alive while navigating
+    if (playingChannel && !isMiniPlayer) setIsMiniPlayer(true);
     setSelectedItem(null);
     setActiveSection(section);
   };
@@ -182,6 +183,7 @@ const Index = () => {
     setSelectedItem(null);
     setPlayingEpisodeKey(null);
     setPlayingIsVod(false);
+    setIsMiniPlayer(false);
     setPlayingChannel(channel);
   };
 
