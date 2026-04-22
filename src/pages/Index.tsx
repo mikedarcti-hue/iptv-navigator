@@ -296,6 +296,21 @@ const Index = () => {
           <BottomNav activeSection={activeSection} onSectionChange={handleSectionChange} />
         )}
 
+        {/* Floating mini-player — keeps content playing while user navigates */}
+        {playingChannel && isMiniPlayer && (
+          <PlayerView
+            channel={playingChannel}
+            onBack={closePlayerCompletely}
+            episodeKey={playingEpisodeKey}
+            isVod={playingIsVod}
+            isSeries={!!playingSeriesInfo}
+            onEnded={handlePlayerEnded}
+            isMini
+            onExpand={expandPlayer}
+            onCloseMini={closePlayerCompletely}
+          />
+        )}
+
         {showExitDialog && (
           <ExitDialog
             onConfirm={() => window.close()}
