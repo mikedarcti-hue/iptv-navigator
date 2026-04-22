@@ -686,7 +686,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         )}
 
         {/* Bottom bar */}
-        {!screenLocked && (
+        {!screenLocked && !isMini && (
           <div className={cn(
             "absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-300 z-10",
             showControls ? "opacity-100" : "opacity-0 pointer-events-none"
