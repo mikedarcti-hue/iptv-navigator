@@ -51,7 +51,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const fragRetryCount = useRef(0);
   const maxFragRetries = 3;
 
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -214,11 +214,16 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     };
 
     const tryAutoplay = (v: HTMLVideoElement) => {
-      v.muted = true;
+      // Try unmuted first (per user request — start with audio)
+      v.muted = false;
       const playPromise = v.play();
       if (playPromise) {
         playPromise.catch(() => {
-          failWithFallback("O navegador bloqueou a reprodução automática");
+          // Browser blocked unmuted autoplay — fall back to muted
+          v.muted = true;
+          setMuted(true);
+          const retry = v.play();
+          if (retry) retry.catch(() => failWithFallback("O navegador bloqueou a reprodução automática"));
         });
       }
     };
