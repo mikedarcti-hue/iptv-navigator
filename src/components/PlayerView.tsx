@@ -577,6 +577,21 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           </div>
         )}
 
+        {/* Skip intro button (series only, between 5s and 90s) */}
+        {isSeries && !isLive && currentTime > 5 && currentTime < 90 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const v = videoRef.current;
+              if (v) v.currentTime = Math.min(v.duration || 95, 95);
+            }}
+            className="absolute bottom-24 right-4 z-20 flex items-center gap-2 px-4 py-2.5 rounded-lg bg-black/80 hover:bg-primary text-white text-sm font-semibold border border-white/20 backdrop-blur-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary tv-focus animate-fade-in"
+          >
+            <FastForward className="w-4 h-4" />
+            Pular abertura
+          </button>
+        )}
+
         {/* Screen lock overlay */}
         {screenLocked && (
           <div className="absolute inset-0 z-30" onClick={(e) => e.stopPropagation()}>
