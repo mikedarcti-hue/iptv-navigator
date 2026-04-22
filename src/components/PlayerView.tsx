@@ -544,7 +544,6 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           className={cn("w-full h-full transition-all", videoObjectFit)}
           autoPlay
           playsInline
-          muted
           controls={false}
         />
 
