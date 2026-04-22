@@ -468,6 +468,21 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     });
   };
 
+  // Try to enter Picture-in-Picture before navigating away — keeps a mini-player visible
+  const handleBackWithPip = useCallback(async () => {
+    const video = videoRef.current;
+    if (!isTvMode && video && !error && document.pictureInPictureEnabled && !(video as any).disablePictureInPicture) {
+      try {
+        if (document.pictureInPictureElement !== video) {
+          await (video as any).requestPictureInPicture();
+        }
+      } catch {
+        // PiP failed — fall back to normal back
+      }
+    }
+    onBack();
+  }, [isTvMode, error, onBack]);
+
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
     const video = videoRef.current;
     if (!video || !isFinite(video.duration) || video.duration === 0) return;
