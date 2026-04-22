@@ -479,6 +479,39 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     onBack();
   }, [onBack]);
 
+  // Request native Picture-in-Picture (used when app goes to background on mobile)
+  const requestNativePip = useCallback(async () => {
+    const video = videoRef.current as any;
+    if (!video) return false;
+    try {
+      if (document.pictureInPictureEnabled && !video.disablePictureInPicture && document.pictureInPictureElement !== video) {
+        await video.requestPictureInPicture();
+        return true;
+      }
+      if (typeof video.webkitSetPresentationMode === "function") {
+        video.webkitSetPresentationMode("picture-in-picture");
+        return true;
+      }
+    } catch (e) {
+      console.warn("[DARK IPTV] PiP error:", e);
+    }
+    return false;
+  }, []);
+
+  // When app goes to background while playing, try to enter native PiP so audio/video continues
+  useEffect(() => {
+    if (isTvMode) return;
+    const onVisibility = () => {
+      const video = videoRef.current;
+      if (!video || video.paused) return;
+      if (document.visibilityState === "hidden") {
+        requestNativePip();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [isTvMode, requestNativePip]);
+
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
     const video = videoRef.current;
     if (!video || !isFinite(video.duration) || video.duration === 0) return;
@@ -577,15 +610,36 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           controls={false}
         />
 
-        {/* Mini player close button */}
+        {/* Mini player controls */}
         {isMini && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onCloseMini?.(); }}
-            className="absolute top-1 right-1 w-7 h-7 rounded-full bg-black/70 hover:bg-destructive flex items-center justify-center text-white z-30"
-            title="Fechar"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <>
+            <div
+              className="absolute inset-x-0 bottom-0 z-30 flex items-center justify-center gap-2 bg-gradient-to-t from-black/80 to-transparent px-2 py-1.5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white"
+                title={paused ? "Reproduzir" : "Pausar"}
+              >
+                {paused ? <Play className="w-4 h-4 fill-white" /> : <Pause className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onExpand?.(); }}
+                className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white"
+                title="Maximizar"
+              >
+                <Maximize className="w-4 h-4" />
+              </button>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); onCloseMini?.(); }}
+              className="absolute top-1 right-1 w-7 h-7 rounded-full bg-black/70 hover:bg-destructive flex items-center justify-center text-white z-30"
+              title="Fechar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </>
         )}
         {/* Netflix-style seek indicators */}
         {seekIndicator === "left" && (
