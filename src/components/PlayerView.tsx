@@ -757,6 +757,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         )}
       </div>
 
+      {!isMini && (
       <div>
         <h1 className="text-xl font-bold text-foreground">{channel.name}</h1>
         <p className="text-sm text-muted-foreground">
