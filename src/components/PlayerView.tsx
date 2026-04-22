@@ -479,6 +479,39 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     onBack();
   }, [onBack]);
 
+  // Request native Picture-in-Picture (used when app goes to background on mobile)
+  const requestNativePip = useCallback(async () => {
+    const video = videoRef.current as any;
+    if (!video) return false;
+    try {
+      if (document.pictureInPictureEnabled && !video.disablePictureInPicture && document.pictureInPictureElement !== video) {
+        await video.requestPictureInPicture();
+        return true;
+      }
+      if (typeof video.webkitSetPresentationMode === "function") {
+        video.webkitSetPresentationMode("picture-in-picture");
+        return true;
+      }
+    } catch (e) {
+      console.warn("[DARK IPTV] PiP error:", e);
+    }
+    return false;
+  }, []);
+
+  // When app goes to background while playing, try to enter native PiP so audio/video continues
+  useEffect(() => {
+    if (isTvMode) return;
+    const onVisibility = () => {
+      const video = videoRef.current;
+      if (!video || video.paused) return;
+      if (document.visibilityState === "hidden") {
+        requestNativePip();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [isTvMode, requestNativePip]);
+
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
     const video = videoRef.current;
     if (!video || !isFinite(video.duration) || video.duration === 0) return;
