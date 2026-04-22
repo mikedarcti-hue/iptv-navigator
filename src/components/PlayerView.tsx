@@ -69,6 +69,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const [bufferLow, setBufferLow] = useState(false);
   const [screenLocked, setScreenLocked] = useState(false);
   const [aspectMode, setAspectMode] = useState<AspectMode>("contain");
+  const [skipIntroDismissed, setSkipIntroDismissed] = useState(false);
 
   // Netflix-style double tap seek
   const [seekIndicator, setSeekIndicator] = useState<"left" | "right" | null>(null);
