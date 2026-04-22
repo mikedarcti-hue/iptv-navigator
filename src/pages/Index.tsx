@@ -185,21 +185,36 @@ const Index = () => {
     setPlayingChannel(channel);
   };
 
+  const closePlayerCompletely = () => {
+    setPlayingChannel(null);
+    setPlayingEpisodeKey(null);
+    setPlayingIsVod(false);
+    setPlayingSeriesInfo(null);
+    setIsMiniPlayer(false);
+    setReturnToItem(null);
+  };
+
+  const minimizePlayer = () => {
+    // Switch to mini-player overlay; keep playback alive
+    setIsMiniPlayer(true);
+    if (returnToItem) {
+      setSelectedItem(returnToItem);
+    } else {
+      // For live channels, return to live section
+      if (!playingIsVod) setActiveSection("live");
+    }
+  };
+
+  const expandPlayer = () => {
+    setIsMiniPlayer(false);
+  };
+
   const renderContent = () => {
-    if (playingChannel) {
+    if (playingChannel && !isMiniPlayer) {
       return (
         <PlayerView
           channel={playingChannel}
-          onBack={() => {
-            setPlayingChannel(null);
-            setPlayingEpisodeKey(null);
-            setPlayingIsVod(false);
-            setPlayingSeriesInfo(null);
-            if (returnToItem) {
-              setSelectedItem(returnToItem);
-              setReturnToItem(null);
-            }
-          }}
+          onBack={minimizePlayer}
           episodeKey={playingEpisodeKey}
           isVod={playingIsVod}
           isSeries={!!playingSeriesInfo}
