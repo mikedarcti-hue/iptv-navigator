@@ -93,6 +93,14 @@ const DashboardView = ({ onNavigate, onPlayChannel, onPlayVod, onSelectItem, liv
 
       <ContinueWatchingRow entries={continueWatching} onResume={handleResume} />
 
+      {trendingItems.length > 0 && (
+        <ContentRow
+          title="🔥 Em Alta"
+          items={trendingItems}
+          onItemClick={onSelectItem}
+        />
+      )}
+
       <ContentRow
         title="Filmes"
         items={movieItems.slice(0, 20)}
