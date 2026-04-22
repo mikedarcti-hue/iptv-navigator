@@ -542,7 +542,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isLive, onBack, resetHideTimer, isTvMode]);
+  }, [isLive, onBack, handleBackWithPip, resetHideTimer, isTvMode]);
 
   useEffect(() => {
     if (isTvMode) {
