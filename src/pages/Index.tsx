@@ -15,6 +15,7 @@ import { liveChannels as mockLiveChannels, movies as mockMovies, series as mockS
 import type { Channel, VodItem, Episode } from "@/lib/mock-data";
 import { useCatalog } from "@/hooks/use-catalog";
 import { getDeviceMode, setDeviceMode, type DeviceMode } from "@/lib/device-mode";
+import { useSpatialNavigation } from "@/hooks/use-spatial-navigation";
 
 export const DeviceModeContext = createContext<DeviceMode>("mobile");
 export const useDeviceMode = () => useContext(DeviceModeContext);
