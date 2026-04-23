@@ -1,8 +1,9 @@
-import { Tv, Film, Clapperboard, Heart, Settings, Search, X, Info, Clock } from "lucide-react";
+import { Tv, Film, Clapperboard, Heart, Settings, Search, X, Info, Clock, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import AccountInfoDialog from "@/components/AccountInfoDialog";
+import { fetchAccountInfo, getCachedAccountInfo } from "@/lib/account-info";
 
 interface TopNavProps {
   activeSection: string;
@@ -25,6 +26,7 @@ const TopNav = ({ activeSection, onSectionChange, globalSearch, onSearchChange }
   const isMobile = useIsMobile();
   const [clock, setClock] = useState("");
   const [expiry, setExpiry] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
 
   useEffect(() => {
     const updateClock = () => {
@@ -34,14 +36,15 @@ const TopNav = ({ activeSection, onSectionChange, globalSearch, onSearchChange }
     updateClock();
     const interval = setInterval(updateClock, 30000);
 
-    // Load expiry from cached account info
-    try {
-      const cached = localStorage.getItem("dark_iptv_account_info");
-      if (cached) {
-        const info = JSON.parse(cached);
-        if (info.expDate && info.expDate !== "N/A") setExpiry(info.expDate);
-      }
-    } catch {}
+    const applyInfo = (info: { username?: string; expDate?: string } | null) => {
+      if (!info) return;
+      if (info.username) setUsername(info.username);
+      if (info.expDate && info.expDate !== "N/A") setExpiry(info.expDate);
+    };
+
+    // Load from cache immediately, then refresh from server in background
+    applyInfo(getCachedAccountInfo());
+    fetchAccountInfo(true).then(applyInfo).catch(() => {});
 
     return () => clearInterval(interval);
   }, []);
@@ -81,10 +84,17 @@ const TopNav = ({ activeSection, onSectionChange, globalSearch, onSearchChange }
 
             {/* Right side */}
             <div className="flex items-center gap-2">
-              {/* Clock & Expiry info */}
+              {/* Clock + User + Expiry info */}
               <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground mr-2">
                 <Clock className="w-3.5 h-3.5" />
                 <span>{clock}</span>
+                {username && (
+                  <>
+                    <span className="text-border">•</span>
+                    <User className="w-3.5 h-3.5" />
+                    <span className="text-foreground/80 max-w-[120px] truncate">{username}</span>
+                  </>
+                )}
                 {expiry && (
                   <>
                     <span className="text-border">•</span>
