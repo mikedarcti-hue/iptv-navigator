@@ -225,10 +225,12 @@ function extractEpisodeInfo(name: string): { season: number; episode: number } {
 function sanitizeImage(value: unknown) {
   if (typeof value !== "string") return "";
   const trimmed = value.trim();
-  if (!trimmed || trimmed === "null") return "";
+  if (!trimmed || trimmed === "null" || trimmed === "undefined") return "";
   if (!/^https?:\/\//i.test(trimmed)) return "";
   // Reject stream-like URLs (snapshots, segments) that aren't real posters
-  if (/\.(ts|m3u8|mp4|mkv|avi|mov|webm)(\?|$)/i.test(trimmed)) return "";
+  if (/\.(ts|m3u8|mp4|mkv|avi|mov|webm|flv)(\?|$)/i.test(trimmed)) return "";
+  if (/\/(live|movie|series|stream|hls|streaming|play)\//i.test(trimmed)) return "";
+  if (/\b(snapshot|preview|thumb_live|live_thumb|screenshot)\b/i.test(trimmed)) return "";
   return trimmed;
 }
 

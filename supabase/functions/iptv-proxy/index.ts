@@ -419,10 +419,15 @@ function buildVodItem(item: any, index: number, categoryMap: Record<string, stri
 
   // Pick the best poster field per content type.
   // Movies: prefer movie_image / cover_big (real posters); avoid stream_icon (often snapshot).
-  // Series: prefer cover / cover_big (real posters); fall back to stream_icon only as last resort.
-  const posterCandidate = type === "movie"
-    ? (item?.movie_image || item?.cover_big || item?.cover || item?.stream_icon)
-    : (item?.cover || item?.cover_big || item?.movie_image || item?.stream_icon);
+  // Series: prefer series_image / cover / cover_big / poster (real posters); avoid stream_icon and backdrop snapshots.
+  const movieCandidates = [item?.movie_image, item?.cover_big, item?.cover, item?.poster, item?.image, item?.stream_icon];
+  const seriesCandidates = [item?.series_image, item?.cover, item?.cover_big, item?.poster, item?.movie_image, item?.image, item?.stream_icon];
+  const candidates = type === "movie" ? movieCandidates : seriesCandidates;
+  let posterCandidate = "";
+  for (const c of candidates) {
+    const sanitized = sanitizePoster(c);
+    if (sanitized) { posterCandidate = sanitized; break; }
+  }
 
   return {
     id: streamId,
@@ -448,11 +453,18 @@ function sanitizeImage(value: unknown) {
 function sanitizePoster(value: unknown) {
   if (typeof value !== "string") return "";
   const trimmed = value.trim();
-  if (!trimmed || trimmed === "null") return "";
+  if (!trimmed || trimmed === "null" || trimmed === "undefined") return "";
   if (!/^https?:\/\//i.test(trimmed)) return "";
   // Reject stream-like URLs that aren't real poster images
-  if (/\.(ts|m3u8|mp4|mkv|avi|mov|webm)(\?|$)/i.test(trimmed)) return "";
-  if (/\/(live|movie|series)\//i.test(trimmed)) return "";
+  if (/\.(ts|m3u8|mp4|mkv|avi|mov|webm|flv)(\?|$)/i.test(trimmed)) return "";
+  // Reject stream paths typical of IPTV providers
+  if (/\/(live|movie|series|stream|hls|streaming|play)\//i.test(trimmed)) return "";
+  // Reject snapshot/thumbnail patterns commonly used for live channel previews
+  if (/\b(snapshot|preview|thumb_live|live_thumb|screenshot)\b/i.test(trimmed)) return "";
+  // Must look like an image (extension or known image hosts)
+  const looksLikeImage = /\.(jpg|jpeg|png|webp|gif|bmp|avif)(\?|$)/i.test(trimmed)
+    || /(tmdb\.org|themoviedb|image\.tmdb|imgur|pinimg|googleusercontent|wp\.com|cloudinary|akamaized|fanart\.tv)/i.test(trimmed);
+  if (!looksLikeImage) return "";
   return trimmed;
 }
 
