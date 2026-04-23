@@ -1,16 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { User, Calendar, Clock, Wifi, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { ServerConfig } from "@/lib/iptv-sync";
-
-interface AccountInfo {
-  username: string;
-  status: string;
-  expDate: string;
-  maxConnections: string;
-  createdAt: string;
-  isTrial: boolean;
-}
+import { fetchAccountInfo, type AccountInfo } from "@/lib/account-info";
 
 interface AccountInfoDialogProps {
   open: boolean;
