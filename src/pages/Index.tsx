@@ -100,24 +100,27 @@ const Index = () => {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      const isEditable = !!target && (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement ||
-        target.isContentEditable ||
-        target.getAttribute("role") === "textbox"
+      const active = document.activeElement as HTMLElement | null;
+      const isEditable = (el: HTMLElement | null) => !!el && (
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLTextAreaElement ||
+        el instanceof HTMLSelectElement ||
+        el.isContentEditable ||
+        el.getAttribute("role") === "textbox"
       );
 
-      if (isEditable) return;
+      if (isEditable(target) || isEditable(active)) return;
 
-      if (e.key === "Backspace" || e.key === "GoBack" || e.key === "XF86Back") {
+      const isTvBackKey = e.key === "GoBack" || e.key === "XF86Back";
+
+      if (isTvBackKey) {
         e.preventDefault();
         handleBack();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleBack]);
+  }, [deviceMode, handleBack]);
 
   // Auto-next episode handler (must be before early return)
   const handlePlayerEnded = useCallback(() => {
