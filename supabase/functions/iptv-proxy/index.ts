@@ -444,6 +444,18 @@ function sanitizeImage(value: unknown) {
   return value;
 }
 
+// Stricter sanitization for VOD posters: rejects stream snapshots and non-image URLs.
+function sanitizePoster(value: unknown) {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "null") return "";
+  if (!/^https?:\/\//i.test(trimmed)) return "";
+  // Reject stream-like URLs that aren't real poster images
+  if (/\.(ts|m3u8|mp4|mkv|avi|mov|webm)(\?|$)/i.test(trimmed)) return "";
+  if (/\/(live|movie|series)\//i.test(trimmed)) return "";
+  return trimmed;
+}
+
 function extractYear(value: unknown) {
   const match = String(value || "").match(/(19|20)\d{2}/);
   return match ? Number(match[0]) : new Date().getFullYear();
