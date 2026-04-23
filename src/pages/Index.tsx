@@ -112,9 +112,8 @@ const Index = () => {
       if (isEditable(target) || isEditable(active)) return;
 
       const isTvBackKey = e.key === "GoBack" || e.key === "XF86Back";
-      const isBackspaceBackKey = deviceMode === "tv" && e.key === "Backspace";
 
-      if (isTvBackKey || isBackspaceBackKey) {
+      if (isTvBackKey) {
         e.preventDefault();
         handleBack();
       }
