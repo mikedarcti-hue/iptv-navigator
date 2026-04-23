@@ -224,8 +224,12 @@ function extractEpisodeInfo(name: string): { season: number; episode: number } {
 
 function sanitizeImage(value: unknown) {
   if (typeof value !== "string") return "";
-  if (value === "null") return "";
-  return value;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "null") return "";
+  if (!/^https?:\/\//i.test(trimmed)) return "";
+  // Reject stream-like URLs (snapshots, segments) that aren't real posters
+  if (/\.(ts|m3u8|mp4|mkv|avi|mov|webm)(\?|$)/i.test(trimmed)) return "";
+  return trimmed;
 }
 
 function extractYear(value: unknown) {
