@@ -1,4 +1,4 @@
-import { Star, Play, Heart } from "lucide-react";
+import { Star, Play, Heart, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import type { VodItem } from "@/lib/mock-data";
@@ -8,6 +8,9 @@ import { isFavorite, toggleFavorite } from "@/lib/favorites";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useDeviceMode } from "@/pages/Index";
+import { isContentLocked } from "@/lib/app-preferences";
+import { usePreferences } from "@/hooks/use-preferences";
+import ParentalPinDialog from "@/components/ParentalPinDialog";
 
 interface VodCardProps {
   item: VodItem;
@@ -18,11 +21,14 @@ interface VodCardProps {
 const VodCard = ({ item, index, onClick }: VodCardProps) => {
   const deviceMode = useDeviceMode();
   const isTvMode = deviceMode === "tv";
+  const { prefs } = usePreferences();
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [, setTick] = useState(0);
+  const [pinOpen, setPinOpen] = useState(false);
   const progressPercent = getProgressPercent(item.id);
   const fav = isFavorite(item.id);
+  const locked = isContentLocked(item.name, (item as any).group);
 
   const handleFav = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -31,19 +37,28 @@ const VodCard = ({ item, index, onClick }: VodCardProps) => {
     toast.success(added ? "Adicionado aos favoritos" : "Removido dos favoritos");
   };
 
+  const handleClick = () => {
+    if (locked) {
+      setPinOpen(true);
+      return;
+    }
+    onClick?.(item);
+  };
+
   // Validate poster URL — reject obvious non-poster sources (stream snapshots, etc.)
   const validPoster = item.poster && /^https?:\/\//i.test(item.poster) && !/\.(ts|m3u8|mp4|mkv)(\?|$)/i.test(item.poster);
-  const showFallback = !validPoster || imgError;
+  const showFallback = !validPoster || imgError || locked;
   const initials = item.name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("");
 
   return (
+    <>
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: Math.min(index * 0.03, 0.3), duration: 0.3 }}
       className="group relative cursor-pointer tv-focus rounded-lg"
       tabIndex={0}
-      onClick={() => onClick?.(item)}
+      onClick={handleClick}
     >
       <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-card">
         {showFallback ? (
