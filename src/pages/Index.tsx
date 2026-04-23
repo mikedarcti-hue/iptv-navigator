@@ -99,6 +99,17 @@ const Index = () => {
   // Handle hardware back button via keydown (Android TV, Fire TV)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isEditable = !!target && (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target.isContentEditable ||
+        target.getAttribute("role") === "textbox"
+      );
+
+      if (isEditable) return;
+
       if (e.key === "Backspace" || e.key === "GoBack" || e.key === "XF86Back") {
         e.preventDefault();
         handleBack();
