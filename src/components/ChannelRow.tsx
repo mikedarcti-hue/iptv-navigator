@@ -1,8 +1,9 @@
 import { forwardRef } from "react";
-import { Play } from "lucide-react";
+import { Play, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Channel } from "@/lib/mock-data";
-import { cn } from "@/lib/utils";
+import { usePreferences } from "@/hooks/use-preferences";
+import { isContentLocked } from "@/lib/app-preferences";
 
 interface ChannelRowProps {
   channel: Channel;
@@ -11,6 +12,10 @@ interface ChannelRowProps {
 }
 
 const ChannelRow = forwardRef<HTMLDivElement, ChannelRowProps>(({ channel, index, onPlay }, ref) => {
+  const { prefs } = usePreferences();
+  const locked = isContentLocked(channel.name, channel.group);
+  const showEpg = prefs.showEpgInChannelList;
+
   return (
     <motion.div
       ref={ref}
@@ -20,7 +25,7 @@ const ChannelRow = forwardRef<HTMLDivElement, ChannelRowProps>(({ channel, index
       onClick={onPlay}
       className="group flex items-center gap-3 p-3 rounded-lg hover:bg-card/80 transition-all cursor-pointer tv-focus"
     >
-      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-md bg-card overflow-hidden shrink-0">
+      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-md bg-card overflow-hidden shrink-0 relative">
         {channel.logo ? (
           <img src={channel.logo} alt={channel.name} className="w-full h-full object-cover" loading="lazy" />
         ) : (
@@ -28,10 +33,17 @@ const ChannelRow = forwardRef<HTMLDivElement, ChannelRowProps>(({ channel, index
             {channel.name.substring(0, 2).toUpperCase()}
           </div>
         )}
+        {locked && (
+          <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+            <Lock className="w-4 h-4 text-primary" />
+          </div>
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground truncate">{channel.name}</p>
-        <p className="text-xs text-muted-foreground truncate">{channel.epgNow || channel.group}</p>
+        {showEpg && (
+          <p className="text-xs text-muted-foreground truncate">{channel.epgNow || channel.group}</p>
+        )}
       </div>
       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
         <Play className="w-3.5 h-3.5 text-primary fill-primary" />

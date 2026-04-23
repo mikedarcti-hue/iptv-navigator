@@ -23,6 +23,7 @@ import mpegts from "mpegts.js";
 import type { Channel } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { useDeviceMode } from "@/pages/Index";
+import { getPreferences, applyStreamFormat } from "@/lib/app-preferences";
 
 const TV_USER_AGENT =
   "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Mobile Safari/537.36";
@@ -89,10 +90,15 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   }, [channel.url, isVod]);
 
   const streamCandidates = useMemo(() => {
-    const candidates = [channel.url, ...(channel.streamCandidates ?? [])]
+    const fmt = getPreferences().streamFormat;
+    const raw = [channel.url, ...(channel.streamCandidates ?? [])]
       .filter(Boolean)
       .map((url) => url.trim());
-    return Array.from(new Set(candidates));
+    // Prepend formatted variant when user forced a specific format
+    const transformed = fmt === "default"
+      ? raw
+      : Array.from(new Set([...raw.map((u) => applyStreamFormat(u, fmt)), ...raw]));
+    return Array.from(new Set(transformed));
   }, [channel.url, channel.streamCandidates]);
 
   const resetHideTimer = useCallback(() => {
@@ -398,7 +404,14 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       }
       video.removeEventListener("canplay", handleCanPlay);
     };
-    const handleEnded = () => { onEnded?.(); };
+    const handleEnded = () => {
+      const prefs = getPreferences();
+      if (isSeries && prefs.autoPlayNextEnabled) {
+        setTimeout(() => onEnded?.(), prefs.autoPlayNextDelay * 1000);
+      } else {
+        onEnded?.();
+      }
+    };
     video.addEventListener("canplay", handleCanPlay);
     video.addEventListener("playing", handlePlaying);
     video.addEventListener("waiting", handleWaiting);
@@ -504,12 +517,26 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   useEffect(() => {
     const video = videoRef.current as any;
     if (!video) return;
+    const pipEnabled = getPreferences().pictureInPictureEnabled;
     try {
-      video.setAttribute("autoPictureInPicture", "");
-      video.autoPictureInPicture = true;
-      video.disablePictureInPicture = false;
+      if (pipEnabled) {
+        video.setAttribute("autoPictureInPicture", "");
+        video.autoPictureInPicture = true;
+        video.disablePictureInPicture = false;
+      } else {
+        video.removeAttribute("autoPictureInPicture");
+        video.autoPictureInPicture = false;
+        video.disablePictureInPicture = true;
+      }
       video.setAttribute("playsinline", "");
       video.setAttribute("webkit-playsinline", "");
+      // Apply subtitle preference when tracks exist
+      const subsOn = getPreferences().subtitlesEnabled;
+      if (video.textTracks) {
+        for (let i = 0; i < video.textTracks.length; i++) {
+          video.textTracks[i].mode = subsOn ? "showing" : "disabled";
+        }
+      }
     } catch {}
   }, [channel.url]);
 
@@ -519,6 +546,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     if (isTvMode) return;
 
     const tryPip = () => {
+      if (!getPreferences().pictureInPictureEnabled) return;
       const video = videoRef.current;
       if (!video || video.paused || video.ended) return;
       // Don't pop PiP while user is in fullscreen — let fullscreen handle it

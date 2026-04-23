@@ -16,6 +16,7 @@ import type { Channel, VodItem, Episode } from "@/lib/mock-data";
 import { useCatalog } from "@/hooks/use-catalog";
 import { getDeviceMode, setDeviceMode, type DeviceMode } from "@/lib/device-mode";
 import { useSpatialNavigation } from "@/hooks/use-spatial-navigation";
+import { getPreferences, clearAppCache } from "@/lib/app-preferences";
 
 export const DeviceModeContext = createContext<DeviceMode>("mobile");
 export const useDeviceMode = () => useContext(DeviceModeContext);
@@ -37,6 +38,13 @@ const Index = () => {
 
   // Enable D-pad spatial navigation in TV mode
   useSpatialNavigation(deviceMode === "tv");
+
+  // Apply boot-time preferences (auto-clear cache)
+  useEffect(() => {
+    if (getPreferences().autoClearCache) {
+      clearAppCache();
+    }
+  }, []);
 
   const liveItems = useMemo(() => (hasCustomCatalog ? catalog.live : mockLiveChannels), [catalog.live, hasCustomCatalog]);
   const movieItems = useMemo(() => (hasCustomCatalog ? catalog.movies : mockMovies), [catalog.movies, hasCustomCatalog]);
