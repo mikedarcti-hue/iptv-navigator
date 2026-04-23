@@ -26,6 +26,7 @@ const TopNav = ({ activeSection, onSectionChange, globalSearch, onSearchChange }
   const isMobile = useIsMobile();
   const [clock, setClock] = useState("");
   const [expiry, setExpiry] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
 
   useEffect(() => {
     const updateClock = () => {
@@ -35,14 +36,15 @@ const TopNav = ({ activeSection, onSectionChange, globalSearch, onSearchChange }
     updateClock();
     const interval = setInterval(updateClock, 30000);
 
-    // Load expiry from cached account info
-    try {
-      const cached = localStorage.getItem("dark_iptv_account_info");
-      if (cached) {
-        const info = JSON.parse(cached);
-        if (info.expDate && info.expDate !== "N/A") setExpiry(info.expDate);
-      }
-    } catch {}
+    const applyInfo = (info: { username?: string; expDate?: string } | null) => {
+      if (!info) return;
+      if (info.username) setUsername(info.username);
+      if (info.expDate && info.expDate !== "N/A") setExpiry(info.expDate);
+    };
+
+    // Load from cache immediately, then refresh from server in background
+    applyInfo(getCachedAccountInfo());
+    fetchAccountInfo(true).then(applyInfo).catch(() => {});
 
     return () => clearInterval(interval);
   }, []);
