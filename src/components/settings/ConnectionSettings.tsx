@@ -144,7 +144,12 @@ const ConnectionSettings = () => {
       ))}
 
       <Dialog open={serverDialogOpen} onOpenChange={setServerDialogOpen}>
-        <DialogContent className="bg-card border-border max-w-md">
+        <DialogContent
+          className="bg-card border-border max-w-md"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+          onFocusOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="text-foreground">Configurar Servidor</DialogTitle>
             <DialogDescription className="text-muted-foreground">Insira os dados de conexão do seu provedor IPTV.</DialogDescription>
