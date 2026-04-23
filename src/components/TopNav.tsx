@@ -84,10 +84,17 @@ const TopNav = ({ activeSection, onSectionChange, globalSearch, onSearchChange }
 
             {/* Right side */}
             <div className="flex items-center gap-2">
-              {/* Clock & Expiry info */}
+              {/* Clock + User + Expiry info */}
               <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground mr-2">
                 <Clock className="w-3.5 h-3.5" />
                 <span>{clock}</span>
+                {username && (
+                  <>
+                    <span className="text-border">•</span>
+                    <User className="w-3.5 h-3.5" />
+                    <span className="text-foreground/80 max-w-[120px] truncate">{username}</span>
+                  </>
+                )}
                 {expiry && (
                   <>
                     <span className="text-border">•</span>
