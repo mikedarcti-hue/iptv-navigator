@@ -417,10 +417,17 @@ function buildVodItem(item: any, index: number, categoryMap: Record<string, stri
     streamUrl = `${baseUrl}/${type === "movie" ? "movie" : "series"}/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${streamId}.${ext}`;
   }
 
+  // Pick the best poster field per content type.
+  // Movies: prefer movie_image / cover_big (real posters); avoid stream_icon (often snapshot).
+  // Series: prefer cover / cover_big (real posters); fall back to stream_icon only as last resort.
+  const posterCandidate = type === "movie"
+    ? (item?.movie_image || item?.cover_big || item?.cover || item?.stream_icon)
+    : (item?.cover || item?.cover_big || item?.movie_image || item?.stream_icon);
+
   return {
     id: streamId,
     name,
-    poster: sanitizeImage(item?.stream_icon || item?.cover || item?.cover_big),
+    poster: sanitizePoster(posterCandidate),
     rating: Number.isFinite(ratingValue) ? Number(ratingValue.toFixed(1)) : 0,
     year,
     genre: categoryMap[String(item?.category_id)] || "Sem categoria",
