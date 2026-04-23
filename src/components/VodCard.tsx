@@ -98,12 +98,22 @@ const VodCard = ({ item, index, onClick }: VodCardProps) => {
           </button>
         )}
 
-        {/* Hover overlay */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-          <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center mb-2 shadow-lg glow-accent">
-            <Play className="w-5 h-5 text-primary-foreground fill-primary-foreground ml-0.5" />
+        {/* Locked overlay */}
+        {locked && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/85 backdrop-blur-sm z-20">
+            <Lock className="w-8 h-8 text-primary mb-2" />
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Bloqueado</span>
           </div>
-        </div>
+        )}
+
+        {/* Hover overlay */}
+        {!locked && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+            <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center mb-2 shadow-lg glow-accent">
+              <Play className="w-5 h-5 text-primary-foreground fill-primary-foreground ml-0.5" />
+            </div>
+          </div>
+        )}
 
         {/* Bottom gradient */}
         <div className="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
@@ -131,6 +141,13 @@ const VodCard = ({ item, index, onClick }: VodCardProps) => {
         <p className="text-[10px] sm:text-xs text-muted-foreground">{item.year}</p>
       </div>
     </motion.div>
+    <ParentalPinDialog
+      open={pinOpen}
+      onOpenChange={setPinOpen}
+      mode="verify"
+      onSuccess={() => onClick?.(item)}
+    />
+    </>
   );
 };
 
