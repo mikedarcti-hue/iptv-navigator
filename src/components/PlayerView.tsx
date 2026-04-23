@@ -484,7 +484,8 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     const video = videoRef.current as any;
     if (!video) return false;
     try {
-      if (document.pictureInPictureEnabled && !video.disablePictureInPicture && document.pictureInPictureElement !== video) {
+      if (document.pictureInPictureElement === video) return true;
+      if (document.pictureInPictureEnabled && !video.disablePictureInPicture) {
         await video.requestPictureInPicture();
         return true;
       }
@@ -498,19 +499,61 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     return false;
   }, []);
 
-  // When app goes to background while playing, try to enter native PiP so audio/video continues
+  // Mark video as PiP-eligible and enable Chrome/Edge "Auto Picture-in-Picture"
+  // so it persists when user switches apps or tabs (Netflix-style).
+  useEffect(() => {
+    const video = videoRef.current as any;
+    if (!video) return;
+    try {
+      video.setAttribute("autoPictureInPicture", "");
+      video.autoPictureInPicture = true;
+      video.disablePictureInPicture = false;
+      video.setAttribute("playsinline", "");
+      video.setAttribute("webkit-playsinline", "");
+    } catch {}
+  }, [channel.url]);
+
+  // When app goes to background while playing, try to enter native PiP so audio/video continues.
+  // We hook into multiple events to maximize the chance the browser still treats it as a gesture-led transition.
   useEffect(() => {
     if (isTvMode) return;
-    const onVisibility = () => {
+
+    const tryPip = () => {
       const video = videoRef.current;
-      if (!video || video.paused) return;
-      if (document.visibilityState === "hidden") {
-        requestNativePip();
-      }
+      if (!video || video.paused || video.ended) return;
+      // Don't pop PiP while user is in fullscreen — let fullscreen handle it
+      if (document.fullscreenElement) return;
+      requestNativePip();
     };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") tryPip();
+    };
+    const onBlur = () => tryPip();
+    const onPageHide = () => tryPip();
+
     document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [isTvMode, requestNativePip]);
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("pagehide", onPageHide);
+
+    // Media Session keeps audio playing in background on Android/iOS
+    if ("mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: channel.name || "DARK IPTV",
+          artwork: channel.logo ? [{ src: channel.logo, sizes: "512x512" }] : [],
+        });
+        navigator.mediaSession.setActionHandler("play", () => videoRef.current?.play());
+        navigator.mediaSession.setActionHandler("pause", () => videoRef.current?.pause());
+      } catch {}
+    }
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, [isTvMode, requestNativePip, channel.name, channel.logo]);
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
     const video = videoRef.current;
