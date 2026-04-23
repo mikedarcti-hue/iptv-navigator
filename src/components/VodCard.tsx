@@ -46,7 +46,12 @@ const VodCard = ({ item, index, onClick }: VodCardProps) => {
   };
 
   // Validate poster URL — reject obvious non-poster sources (stream snapshots, etc.)
-  const validPoster = item.poster && /^https?:\/\//i.test(item.poster) && !/\.(ts|m3u8|mp4|mkv)(\?|$)/i.test(item.poster);
+  const poster = item.poster?.trim() || "";
+  const validPoster = !!poster
+    && /^https?:\/\//i.test(poster)
+    && !/\.(ts|m3u8|mp4|mkv|avi|mov|webm|flv)(\?|$)/i.test(poster)
+    && !/\/(live|movie|series|stream|hls|streaming|play)\//i.test(poster)
+    && !/\b(snapshot|preview|thumb_live|live_thumb|screenshot)\b/i.test(poster);
   const showFallback = !validPoster || imgError || locked;
   const initials = item.name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("");
 

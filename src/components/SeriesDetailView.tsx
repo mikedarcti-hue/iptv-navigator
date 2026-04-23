@@ -85,15 +85,44 @@ const SeriesDetailView = ({ item, onBack, onPlayEpisode }: SeriesDetailViewProps
 
       <div className="relative rounded-2xl overflow-hidden card-shadow">
         <div className="absolute inset-0">
-          <img src={item.poster} alt="" className="w-full h-full object-cover blur-2xl scale-110 opacity-30" />
+          {(() => {
+            const p = item.poster?.trim() || "";
+            const valid = !!p && /^https?:\/\//i.test(p)
+              && !/\.(ts|m3u8|mp4|mkv|avi|mov|webm|flv)(\?|$)/i.test(p)
+              && !/\/(live|movie|series|stream|hls|streaming|play)\//i.test(p);
+            return valid ? (
+              <img src={p} alt="" className="w-full h-full object-cover blur-2xl scale-110 opacity-30" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-primary/20 via-background to-secondary/20" />
+            );
+          })()}
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/90 to-background/60" />
         </div>
 
         <div className="relative flex flex-col md:flex-row gap-6 sm:gap-8 p-4 sm:p-6 md:p-10">
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }} className="shrink-0 w-36 sm:w-48 md:w-56 mx-auto md:mx-0">
             <div className="relative aspect-[2/3] rounded-xl overflow-hidden card-shadow">
-              {!imgLoaded && <div className="absolute inset-0 bg-gradient-to-r from-surface via-surface-hover to-surface animate-pulse" />}
-              <img src={item.poster} alt={item.name} onLoad={() => setImgLoaded(true)} className={cn("w-full h-full object-cover transition-opacity duration-500", imgLoaded ? "opacity-100" : "opacity-0")} />
+              {(() => {
+                const p = item.poster?.trim() || "";
+                const valid = !!p && /^https?:\/\//i.test(p)
+                  && !/\.(ts|m3u8|mp4|mkv|avi|mov|webm|flv)(\?|$)/i.test(p)
+                  && !/\/(live|movie|series|stream|hls|streaming|play)\//i.test(p);
+                if (!valid) {
+                  const initials = item.name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("");
+                  return (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-primary/30 via-card to-secondary/40 p-3 text-center">
+                      <span className="text-4xl font-black text-foreground/80">{initials}</span>
+                      <span className="mt-2 text-[10px] uppercase tracking-wider text-muted-foreground">Série</span>
+                    </div>
+                  );
+                }
+                return (
+                  <>
+                    {!imgLoaded && <div className="absolute inset-0 bg-gradient-to-r from-surface via-surface-hover to-surface animate-pulse" />}
+                    <img src={p} alt={item.name} onLoad={() => setImgLoaded(true)} className={cn("w-full h-full object-cover transition-opacity duration-500", imgLoaded ? "opacity-100" : "opacity-0")} />
+                  </>
+                );
+              })()}
             </div>
           </motion.div>
 
