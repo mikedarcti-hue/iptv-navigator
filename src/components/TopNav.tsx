@@ -1,8 +1,9 @@
-import { Tv, Film, Clapperboard, Heart, Settings, Search, X, Info, Clock } from "lucide-react";
+import { Tv, Film, Clapperboard, Heart, Settings, Search, X, Info, Clock, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import AccountInfoDialog from "@/components/AccountInfoDialog";
+import { fetchAccountInfo, getCachedAccountInfo } from "@/lib/account-info";
 
 interface TopNavProps {
   activeSection: string;
