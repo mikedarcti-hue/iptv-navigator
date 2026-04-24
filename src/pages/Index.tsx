@@ -111,10 +111,22 @@ const Index = () => {
 
       if (isEditable(target) || isEditable(active)) return;
 
-      const isTvBackKey = e.key === "GoBack" || e.key === "XF86Back";
+      // TV remote back keys (Android TV, Fire TV, Tizen, WebOS, etc.)
+      const isTvBackKey =
+        e.key === "GoBack" ||
+        e.key === "XF86Back" ||
+        e.key === "BrowserBack" ||
+        e.keyCode === 10009 || // Tizen (Samsung)
+        e.keyCode === 461 ||   // WebOS (LG)
+        e.keyCode === 166 ||   // Some Android TV
+        e.keyCode === 4;       // Android KEYCODE_BACK
 
-      if (isTvBackKey) {
+      // Only treat Escape/Backspace as "back" when in TV mode (so mobile typing stays intact)
+      const isTvModeBack = deviceMode === "tv" && (e.key === "Escape" || e.key === "Backspace");
+
+      if (isTvBackKey || isTvModeBack) {
         e.preventDefault();
+        e.stopPropagation();
         handleBack();
       }
     };
