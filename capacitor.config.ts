@@ -9,6 +9,14 @@ const config: CapacitorConfig = {
       releaseType: 'APK',
     },
   },
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 1500,
+      backgroundColor: '#000000',
+      showSpinner: false,
+      androidSplashResourceName: 'splash',
+    },
+  },
 };
 
 export default config;
