@@ -773,7 +773,20 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           </div>
         )}
 
-        {/* Skip intro button removed per user request */}
+        {/* Next episode overlay (series only) — appears in last 30s, autoplay handled in handleEnded */}
+        {isSeries && !isMini && onEnded && duration > 0 && (duration - currentTime) <= 30 && (duration - currentTime) > 0.5 && (
+          <div className="absolute bottom-20 right-4 z-30 animate-in fade-in slide-in-from-bottom-2" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={(e) => { e.stopPropagation(); onEnded?.(); }}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm shadow-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary tv-focus"
+              title="Próximo episódio"
+            >
+              <SkipForward className="w-4 h-4" />
+              Próximo episódio
+              <span className="ml-1 text-xs opacity-80">({Math.max(1, Math.ceil(duration - currentTime))}s)</span>
+            </button>
+          </div>
+        )}
 
         {/* Screen lock overlay */}
         {screenLocked && (
