@@ -68,14 +68,24 @@ const DashboardView = ({ onNavigate, onPlayChannel, onPlayVod, onSelectItem, liv
   }, [movieItems, seriesItems]);
 
   const handleResume = (entry: WatchedEntry) => {
-    if (entry.item) {
-      if (entry.item.type === "series") {
-        onSelectItem?.(entry.item);
-      } else if (entry.item.streamUrl) {
-        onPlayVod?.(entry.item);
-      } else {
-        onSelectItem?.(entry.item);
-      }
+    const item = entry.item;
+    if (!item) {
+      // Fallback: try one more lookup with the raw id (no S/E suffix strip)
+      const fallback = [...movieItems, ...seriesItems].find((i) => i.id === entry.itemId);
+      if (!fallback) return;
+      if (fallback.type === "series") onSelectItem?.(fallback);
+      else if (fallback.streamUrl) onPlayVod?.(fallback);
+      else onSelectItem?.(fallback);
+      return;
+    }
+    if (item.type === "series") {
+      // Open detail; SeriesDetailView shows "Continuar" button for the saved episode
+      onSelectItem?.(item);
+    } else if (item.streamUrl) {
+      // PlayerView auto-resumes from saved currentTime via getProgress(channel.id)
+      onPlayVod?.(item);
+    } else {
+      onSelectItem?.(item);
     }
   };
 
