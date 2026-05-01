@@ -95,7 +95,7 @@ const ContinueWatchingRow = ({ entries, onResume }: ContinueWatchingRowProps) =>
                   <p className="text-[10px] text-muted-foreground truncate">{entry.label}</p>
                 )}
               </div>
-            </motion.div>
+            </motion.button>
           );
         })}
       </div>
