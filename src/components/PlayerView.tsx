@@ -177,6 +177,49 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     return () => clearInterval(interval);
   }, [isLiveStream]);
 
+  // Keep screen awake during playback (Wake Lock API for web/mobile + Capacitor KeepAwake for native)
+  useEffect(() => {
+    let wakeLock: any = null;
+    let cancelled = false;
+    let keepAwakePlugin: any = null;
+
+    const acquire = async () => {
+      // Web Wake Lock API (Android Chrome, modern browsers)
+      try {
+        if ("wakeLock" in navigator && (navigator as any).wakeLock?.request) {
+          wakeLock = await (navigator as any).wakeLock.request("screen");
+          wakeLock?.addEventListener?.("release", () => { wakeLock = null; });
+        }
+      } catch {}
+      // Capacitor KeepAwake (native Android/iOS apps)
+      try {
+        const mod: any = await import("@capacitor-community/keep-awake").catch(() => null);
+        if (mod?.KeepAwake && !cancelled) {
+          keepAwakePlugin = mod.KeepAwake;
+          await keepAwakePlugin.keepAwake();
+        }
+      } catch {}
+    };
+
+    const release = async () => {
+      try { if (wakeLock) { await wakeLock.release(); wakeLock = null; } } catch {}
+      try { if (keepAwakePlugin) { await keepAwakePlugin.allowSleep(); keepAwakePlugin = null; } } catch {}
+    };
+
+    acquire();
+
+    // Re-acquire on visibility change (browser releases wake lock when tab is hidden)
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && !cancelled) acquire();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisibility);
+      release();
+    };
+  }, []);
   // ===== STREAM LOADING (unchanged logic) =====
   useEffect(() => {
     const video = videoRef.current;
@@ -730,22 +773,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           </div>
         )}
 
-        {/* Skip intro button (series only, between 5s and 90s) — fixed position, dismisses on click */}
-        {isSeries && !isLive && !skipIntroDismissed && currentTime > 5 && currentTime < 90 && !isMini && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              const v = videoRef.current;
-              if (v) v.currentTime = Math.min(v.duration || 95, 95);
-              setSkipIntroDismissed(true);
-            }}
-            style={{ position: "absolute", bottom: "6rem", right: "1rem" }}
-            className="z-20 flex items-center gap-2 px-4 py-2.5 rounded-lg bg-black/80 hover:bg-primary text-white text-sm font-semibold border border-white/20 backdrop-blur-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary tv-focus animate-fade-in"
-          >
-            <FastForward className="w-4 h-4" />
-            Pular abertura
-          </button>
-        )}
+        {/* Skip intro button removed per user request */}
 
         {/* Screen lock overlay */}
         {screenLocked && (
