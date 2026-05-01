@@ -43,13 +43,16 @@ const ContinueWatchingRow = ({ entries, onResume }: ContinueWatchingRowProps) =>
           const name = entry.item?.name || entry.channel?.name || entry.label || entry.itemId;
 
           return (
-            <motion.div
+            <motion.button
+              type="button"
               key={entry.itemId}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: Math.min(index * 0.05, 0.3), duration: 0.3 }}
-              className="shrink-0 w-[200px] sm:w-[240px] md:w-[260px] cursor-pointer group"
+              className="shrink-0 w-[200px] sm:w-[240px] md:w-[260px] cursor-pointer group text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg tv-focus"
+              tabIndex={0}
               onClick={() => onResume(entry)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onResume(entry); } }}
             >
               <div className="relative aspect-video rounded-lg overflow-hidden bg-card">
                 {poster ? (
