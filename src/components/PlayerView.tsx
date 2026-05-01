@@ -177,6 +177,49 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     return () => clearInterval(interval);
   }, [isLiveStream]);
 
+  // Keep screen awake during playback (Wake Lock API for web/mobile + Capacitor KeepAwake for native)
+  useEffect(() => {
+    let wakeLock: any = null;
+    let cancelled = false;
+    let keepAwakePlugin: any = null;
+
+    const acquire = async () => {
+      // Web Wake Lock API (Android Chrome, modern browsers)
+      try {
+        if ("wakeLock" in navigator && (navigator as any).wakeLock?.request) {
+          wakeLock = await (navigator as any).wakeLock.request("screen");
+          wakeLock?.addEventListener?.("release", () => { wakeLock = null; });
+        }
+      } catch {}
+      // Capacitor KeepAwake (native Android/iOS apps)
+      try {
+        const mod: any = await import("@capacitor-community/keep-awake").catch(() => null);
+        if (mod?.KeepAwake && !cancelled) {
+          keepAwakePlugin = mod.KeepAwake;
+          await keepAwakePlugin.keepAwake();
+        }
+      } catch {}
+    };
+
+    const release = async () => {
+      try { if (wakeLock) { await wakeLock.release(); wakeLock = null; } } catch {}
+      try { if (keepAwakePlugin) { await keepAwakePlugin.allowSleep(); keepAwakePlugin = null; } } catch {}
+    };
+
+    acquire();
+
+    // Re-acquire on visibility change (browser releases wake lock when tab is hidden)
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && !cancelled) acquire();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisibility);
+      release();
+    };
+  }, []);
   // ===== STREAM LOADING (unchanged logic) =====
   useEffect(() => {
     const video = videoRef.current;
