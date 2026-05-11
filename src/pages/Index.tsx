@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState, useCall
 import TopNav from "@/components/TopNav";
 import BottomNav from "@/components/BottomNav";
 import DashboardView from "@/components/DashboardView";
+import LauncherHome from "@/components/LauncherHome";
 import LiveView from "@/components/LiveView";
 import VodGridView from "@/components/VodGridView";
 import FavoritesView from "@/components/FavoritesView";
@@ -275,11 +276,8 @@ const Index = () => {
     switch (activeSection) {
       case "dashboard":
         return (
-          <DashboardView
+          <LauncherHome
             onNavigate={handleSectionChange}
-            onPlayChannel={handlePlayChannel}
-            onPlayVod={handlePlayVod}
-            onSelectItem={handleSelectItem}
             liveChannels={liveItems}
             movieItems={movieItems}
             seriesItems={seriesItems}
