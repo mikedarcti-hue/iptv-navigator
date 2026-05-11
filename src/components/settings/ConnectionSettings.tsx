@@ -273,7 +273,7 @@ const ConnectionSettings = () => {
                   setPlaylistDialogOpen(false);
                   toast.success(`Tipo alterado para ${option.label}`);
                 }}
-                className={`w-full flex items-center gap-3 p-4 rounded-lg transition-all text-left ${config.type === option.value ? "bg-primary/15 border border-primary/30" : "bg-surface hover:bg-surface-hover border border-transparent"}`}
+                className={`tv-focus w-full flex items-center gap-3 p-4 rounded-lg transition-all text-left ${config.type === option.value ? "bg-primary/15 border border-primary/30" : "bg-surface hover:bg-surface-hover border border-transparent"}`}
               >
                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${config.type === option.value ? "border-primary" : "border-muted-foreground"}`}>
                   {config.type === option.value && <div className="w-2 h-2 rounded-full bg-primary" />}
@@ -299,7 +299,7 @@ const ConnectionSettings = () => {
               <button
                 key={value}
                 onClick={() => saveBuffer(value)}
-                className={`w-full flex items-center gap-3 p-4 rounded-lg transition-all text-left ${bufferSize === value ? "bg-primary/15 border border-primary/30" : "bg-surface hover:bg-surface-hover border border-transparent"}`}
+                className={`tv-focus w-full flex items-center gap-3 p-4 rounded-lg transition-all text-left ${bufferSize === value ? "bg-primary/15 border border-primary/30" : "bg-surface hover:bg-surface-hover border border-transparent"}`}
               >
                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${bufferSize === value ? "border-primary" : "border-muted-foreground"}`}>
                   {bufferSize === value && <div className="w-2 h-2 rounded-full bg-primary" />}
@@ -325,7 +325,7 @@ const ConnectionSettings = () => {
               <button
                 key={option.value}
                 onClick={() => saveDecoder(option.value)}
-                className={`w-full flex items-center gap-3 p-4 rounded-lg transition-all text-left ${decoder === option.value ? "bg-primary/15 border border-primary/30" : "bg-surface hover:bg-surface-hover border border-transparent"}`}
+                className={`tv-focus w-full flex items-center gap-3 p-4 rounded-lg transition-all text-left ${decoder === option.value ? "bg-primary/15 border border-primary/30" : "bg-surface hover:bg-surface-hover border border-transparent"}`}
               >
                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${decoder === option.value ? "border-primary" : "border-muted-foreground"}`}>
                   {decoder === option.value && <div className="w-2 h-2 rounded-full bg-primary" />}
