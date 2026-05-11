@@ -29,8 +29,7 @@ const BottomNav = ({ activeSection, onSectionChange }: BottomNavProps) => {
                 isActive ? "text-primary" : "text-muted-foreground"
               )}
             >
-              <item.icon className={cn("w-5 h-5", isActive && "drop-shadow-[0_0_6px_hsl(var(--primary))]")} />
-              <span className="text-[10px] font-medium truncate">{item.label}</span>
+              <item.icon className={cn("w-7 h-7", isActive && "drop-shadow-[0_0_6px_hsl(var(--primary))]")} />
             </button>
           );
         })}

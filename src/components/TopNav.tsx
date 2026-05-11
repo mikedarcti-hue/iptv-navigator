@@ -1,4 +1,4 @@
-import { Tv, Film, Clapperboard, Heart, Settings, Search, X, Info, Clock, User } from "lucide-react";
+import { Tv, Film, Clapperboard, Heart, Settings, Search, X, Info, Clock, User, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
