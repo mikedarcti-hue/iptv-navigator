@@ -128,7 +128,14 @@ const ConnectionSettings = () => {
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-1">{group.title}</h3>
           <div className="glass-surface rounded-xl overflow-hidden card-shadow divide-y divide-border/50">
             {group.items.map((item) => (
-              <div key={item.label} onClick={item.onClick} className="flex items-center gap-4 p-4 hover:bg-surface-hover transition-colors cursor-pointer tv-focus">
+              <button
+                key={item.label}
+                type="button"
+                onClick={item.onClick}
+                disabled={!item.action}
+                tabIndex={item.action ? 0 : -1}
+                className="w-full text-left flex items-center gap-4 p-4 hover:bg-surface-hover focus:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer tv-focus disabled:cursor-default"
+              >
                 <div className="w-10 h-10 rounded-lg bg-surface flex items-center justify-center shrink-0">
                   <item.icon className={`w-5 h-5 text-muted-foreground ${item.label === "Sincronizar Catálogo" && syncing ? "animate-spin" : ""}`} />
                 </div>
@@ -137,7 +144,7 @@ const ConnectionSettings = () => {
                   <p className="text-xs text-muted-foreground truncate">{item.value}</p>
                 </div>
                 {item.action && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-              </div>
+              </button>
             ))}
           </div>
         </section>
@@ -158,13 +165,13 @@ const ConnectionSettings = () => {
           <div className="flex gap-2 p-1 rounded-lg bg-surface">
             <button
               onClick={() => setTempConfig({ ...tempConfig, type: "xtream" })}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${tempConfig.type === "xtream" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+              className={`tv-focus flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${tempConfig.type === "xtream" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
             >
               Xtream Codes
             </button>
             <button
               onClick={() => setTempConfig({ ...tempConfig, type: "m3u" })}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${tempConfig.type === "m3u" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+              className={`tv-focus flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${tempConfig.type === "m3u" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
             >
               M3U / M3U8
             </button>
@@ -176,10 +183,12 @@ const ConnectionSettings = () => {
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">URL da Playlist</label>
                 <input
                   type="url"
+                  inputMode="url"
+                  autoFocus
                   value={tempConfig.m3uUrl}
                   onChange={(event) => setTempConfig({ ...tempConfig, m3uUrl: event.target.value })}
                   placeholder="http://exemplo.com/playlist.m3u"
-                  className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/40 transition-all"
+                  className="tv-focus w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary transition-all"
                 />
               </div>
             ) : (
@@ -188,10 +197,12 @@ const ConnectionSettings = () => {
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">URL do Servidor</label>
                   <input
                     type="url"
+                    inputMode="url"
+                    autoFocus
                     value={tempConfig.xtreamUrl}
                     onChange={(event) => setTempConfig({ ...tempConfig, xtreamUrl: event.target.value })}
                     placeholder="http://servidor.com:8080"
-                    className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/40 transition-all"
+                    className="tv-focus w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary transition-all"
                   />
                 </div>
                 <div>
@@ -201,7 +212,7 @@ const ConnectionSettings = () => {
                     value={tempConfig.xtreamUser}
                     onChange={(event) => setTempConfig({ ...tempConfig, xtreamUser: event.target.value })}
                     placeholder="seu_usuario"
-                    className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/40 transition-all"
+                    className="tv-focus w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary transition-all"
                   />
                 </div>
                 <div>
@@ -211,7 +222,7 @@ const ConnectionSettings = () => {
                     value={tempConfig.xtreamPass}
                     onChange={(event) => setTempConfig({ ...tempConfig, xtreamPass: event.target.value })}
                     placeholder="••••••••"
-                    className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/40 transition-all"
+                    className="tv-focus w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary transition-all"
                   />
                 </div>
               </>
@@ -232,10 +243,10 @@ const ConnectionSettings = () => {
           )}
 
           <div className="flex gap-3 mt-2">
-            <button onClick={testConnection} disabled={status === "testing"} className="flex-1 py-2.5 rounded-lg bg-surface text-sm font-medium text-foreground hover:bg-surface-hover transition-all border border-border disabled:opacity-50">
+            <button onClick={testConnection} disabled={status === "testing"} className="tv-focus flex-1 py-2.5 rounded-lg bg-surface text-sm font-medium text-foreground hover:bg-surface-hover transition-all border border-border disabled:opacity-50">
               Testar Conexão
             </button>
-            <button onClick={saveAndSync} className="flex-1 py-2.5 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-all">
+            <button onClick={saveAndSync} className="tv-focus flex-1 py-2.5 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-all">
               Salvar
             </button>
           </div>
@@ -262,7 +273,7 @@ const ConnectionSettings = () => {
                   setPlaylistDialogOpen(false);
                   toast.success(`Tipo alterado para ${option.label}`);
                 }}
-                className={`w-full flex items-center gap-3 p-4 rounded-lg transition-all text-left ${config.type === option.value ? "bg-primary/15 border border-primary/30" : "bg-surface hover:bg-surface-hover border border-transparent"}`}
+                className={`tv-focus w-full flex items-center gap-3 p-4 rounded-lg transition-all text-left ${config.type === option.value ? "bg-primary/15 border border-primary/30" : "bg-surface hover:bg-surface-hover border border-transparent"}`}
               >
                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${config.type === option.value ? "border-primary" : "border-muted-foreground"}`}>
                   {config.type === option.value && <div className="w-2 h-2 rounded-full bg-primary" />}
@@ -288,7 +299,7 @@ const ConnectionSettings = () => {
               <button
                 key={value}
                 onClick={() => saveBuffer(value)}
-                className={`w-full flex items-center gap-3 p-4 rounded-lg transition-all text-left ${bufferSize === value ? "bg-primary/15 border border-primary/30" : "bg-surface hover:bg-surface-hover border border-transparent"}`}
+                className={`tv-focus w-full flex items-center gap-3 p-4 rounded-lg transition-all text-left ${bufferSize === value ? "bg-primary/15 border border-primary/30" : "bg-surface hover:bg-surface-hover border border-transparent"}`}
               >
                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${bufferSize === value ? "border-primary" : "border-muted-foreground"}`}>
                   {bufferSize === value && <div className="w-2 h-2 rounded-full bg-primary" />}
@@ -314,7 +325,7 @@ const ConnectionSettings = () => {
               <button
                 key={option.value}
                 onClick={() => saveDecoder(option.value)}
-                className={`w-full flex items-center gap-3 p-4 rounded-lg transition-all text-left ${decoder === option.value ? "bg-primary/15 border border-primary/30" : "bg-surface hover:bg-surface-hover border border-transparent"}`}
+                className={`tv-focus w-full flex items-center gap-3 p-4 rounded-lg transition-all text-left ${decoder === option.value ? "bg-primary/15 border border-primary/30" : "bg-surface hover:bg-surface-hover border border-transparent"}`}
               >
                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${decoder === option.value ? "border-primary" : "border-muted-foreground"}`}>
                   {decoder === option.value && <div className="w-2 h-2 rounded-full bg-primary" />}
