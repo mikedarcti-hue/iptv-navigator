@@ -30,7 +30,7 @@ const LauncherHome = ({ liveChannels, movieItems, seriesItems, onNavigate }: Lau
   const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const date = now.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "short" });
 
-  const tiles = [
+  const tiles: Array<{ id: string; label: string; sub: string; icon: typeof Tv; gradient: string; badge?: string }> = [
     {
       id: "live",
       label: "Ao Vivo",
