@@ -369,7 +369,7 @@ const Index = () => {
 
         <main className="pt-14 md:pt-16 pb-6">
           <div className="px-3 sm:px-4 md:px-8 lg:px-12 tv:px-16">
-            {renderContent()}
+            <Suspense fallback={<ViewFallback />}>{renderContent()}</Suspense>
           </div>
         </main>
 
