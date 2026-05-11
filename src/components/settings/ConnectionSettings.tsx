@@ -165,13 +165,13 @@ const ConnectionSettings = () => {
           <div className="flex gap-2 p-1 rounded-lg bg-surface">
             <button
               onClick={() => setTempConfig({ ...tempConfig, type: "xtream" })}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${tempConfig.type === "xtream" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+              className={`tv-focus flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${tempConfig.type === "xtream" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
             >
               Xtream Codes
             </button>
             <button
               onClick={() => setTempConfig({ ...tempConfig, type: "m3u" })}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${tempConfig.type === "m3u" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+              className={`tv-focus flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${tempConfig.type === "m3u" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
             >
               M3U / M3U8
             </button>
@@ -183,10 +183,12 @@ const ConnectionSettings = () => {
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">URL da Playlist</label>
                 <input
                   type="url"
+                  inputMode="url"
+                  autoFocus
                   value={tempConfig.m3uUrl}
                   onChange={(event) => setTempConfig({ ...tempConfig, m3uUrl: event.target.value })}
                   placeholder="http://exemplo.com/playlist.m3u"
-                  className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/40 transition-all"
+                  className="tv-focus w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary transition-all"
                 />
               </div>
             ) : (
@@ -195,10 +197,12 @@ const ConnectionSettings = () => {
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">URL do Servidor</label>
                   <input
                     type="url"
+                    inputMode="url"
+                    autoFocus
                     value={tempConfig.xtreamUrl}
                     onChange={(event) => setTempConfig({ ...tempConfig, xtreamUrl: event.target.value })}
                     placeholder="http://servidor.com:8080"
-                    className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/40 transition-all"
+                    className="tv-focus w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary transition-all"
                   />
                 </div>
                 <div>
@@ -208,7 +212,7 @@ const ConnectionSettings = () => {
                     value={tempConfig.xtreamUser}
                     onChange={(event) => setTempConfig({ ...tempConfig, xtreamUser: event.target.value })}
                     placeholder="seu_usuario"
-                    className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/40 transition-all"
+                    className="tv-focus w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary transition-all"
                   />
                 </div>
                 <div>
@@ -218,7 +222,7 @@ const ConnectionSettings = () => {
                     value={tempConfig.xtreamPass}
                     onChange={(event) => setTempConfig({ ...tempConfig, xtreamPass: event.target.value })}
                     placeholder="••••••••"
-                    className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/40 transition-all"
+                    className="tv-focus w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary transition-all"
                   />
                 </div>
               </>
@@ -239,10 +243,10 @@ const ConnectionSettings = () => {
           )}
 
           <div className="flex gap-3 mt-2">
-            <button onClick={testConnection} disabled={status === "testing"} className="flex-1 py-2.5 rounded-lg bg-surface text-sm font-medium text-foreground hover:bg-surface-hover transition-all border border-border disabled:opacity-50">
+            <button onClick={testConnection} disabled={status === "testing"} className="tv-focus flex-1 py-2.5 rounded-lg bg-surface text-sm font-medium text-foreground hover:bg-surface-hover transition-all border border-border disabled:opacity-50">
               Testar Conexão
             </button>
-            <button onClick={saveAndSync} className="flex-1 py-2.5 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-all">
+            <button onClick={saveAndSync} className="tv-focus flex-1 py-2.5 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-all">
               Salvar
             </button>
           </div>
