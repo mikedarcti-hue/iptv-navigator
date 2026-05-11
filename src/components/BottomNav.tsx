@@ -25,7 +25,7 @@ const BottomNav = ({ activeSection, onSectionChange }: BottomNavProps) => {
               key={item.id}
               onClick={() => onSectionChange(item.id)}
               className={cn(
-                "flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-all min-w-0",
+                "flex items-center justify-center py-2 px-4 rounded-xl transition-all min-w-0",
                 isActive ? "text-primary" : "text-muted-foreground"
               )}
             >
