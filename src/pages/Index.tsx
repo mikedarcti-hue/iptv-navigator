@@ -1,17 +1,24 @@
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
+import React, { createContext, lazy, Suspense, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import TopNav from "@/components/TopNav";
-import BottomNav from "@/components/BottomNav";
-import DashboardView from "@/components/DashboardView";
 import LauncherHome from "@/components/LauncherHome";
-import LiveView from "@/components/LiveView";
-import VodGridView from "@/components/VodGridView";
-import FavoritesView from "@/components/FavoritesView";
-import SettingsView from "@/components/SettingsView";
-import PlayerView from "@/components/PlayerView";
-import VodDetailView from "@/components/VodDetailView";
-import SeriesDetailView from "@/components/SeriesDetailView";
 import DeviceModeSelector from "@/components/DeviceModeSelector";
 import ExitDialog from "@/components/ExitDialog";
+
+// Lazy-loaded heavy views (split bundles for faster startup on TV/mobile)
+const DashboardView = lazy(() => import("@/components/DashboardView"));
+const LiveView = lazy(() => import("@/components/LiveView"));
+const VodGridView = lazy(() => import("@/components/VodGridView"));
+const FavoritesView = lazy(() => import("@/components/FavoritesView"));
+const SettingsView = lazy(() => import("@/components/SettingsView"));
+const PlayerView = lazy(() => import("@/components/PlayerView"));
+const VodDetailView = lazy(() => import("@/components/VodDetailView"));
+const SeriesDetailView = lazy(() => import("@/components/SeriesDetailView"));
+
+const ViewFallback = () => (
+  <div className="flex items-center justify-center py-20">
+    <div className="w-10 h-10 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+  </div>
+);
 import { liveChannels as mockLiveChannels, movies as mockMovies, series as mockSeries } from "@/lib/mock-data";
 import type { Channel, VodItem, Episode } from "@/lib/mock-data";
 import { useCatalog } from "@/hooks/use-catalog";
@@ -59,7 +66,21 @@ const Index = () => {
   // Back button / popstate handling
   const handleBack = useCallback(() => {
     if (playingChannel && !isMiniPlayer) {
-      // Minimize to mini-player instead of closing
+      // TV mode: close player completely (no PiP). Mobile: minimize to mini-player.
+      if (deviceMode === "tv") {
+        setPlayingChannel(null);
+        setPlayingEpisodeKey(null);
+        setPlayingIsVod(false);
+        setPlayingSeriesInfo(null);
+        setIsMiniPlayer(false);
+        if (returnToItem) {
+          setSelectedItem(returnToItem);
+          setReturnToItem(null);
+        } else if (!playingIsVod) {
+          setActiveSection("live");
+        }
+        return;
+      }
       setIsMiniPlayer(true);
       if (returnToItem) {
         setSelectedItem(returnToItem);
@@ -214,8 +235,19 @@ const Index = () => {
   };
 
   const handleSectionChange = (section: string) => {
-    // If full player is open, minimize to keep playback alive while navigating
-    if (playingChannel && !isMiniPlayer) setIsMiniPlayer(true);
+    // TV mode: no mini-player. Close playback when navigating away.
+    if (playingChannel && !isMiniPlayer) {
+      if (deviceMode === "tv") {
+        setPlayingChannel(null);
+        setPlayingEpisodeKey(null);
+        setPlayingIsVod(false);
+        setPlayingSeriesInfo(null);
+        setIsMiniPlayer(false);
+        setReturnToItem(null);
+      } else {
+        setIsMiniPlayer(true);
+      }
+    }
     setSelectedItem(null);
     setActiveSection(section);
   };
@@ -238,12 +270,21 @@ const Index = () => {
   };
 
   const minimizePlayer = () => {
-    // Switch to mini-player overlay; keep playback alive
+    // TV mode: no PiP — fully close the player on back.
+    if (deviceMode === "tv") {
+      closePlayerCompletely();
+      if (returnToItem) {
+        setSelectedItem(returnToItem);
+        setReturnToItem(null);
+      } else if (!playingIsVod) {
+        setActiveSection("live");
+      }
+      return;
+    }
     setIsMiniPlayer(true);
     if (returnToItem) {
       setSelectedItem(returnToItem);
     } else {
-      // For live channels, return to live section
       if (!playingIsVod) setActiveSection("live");
     }
   };
@@ -328,7 +369,7 @@ const Index = () => {
 
         <main className="pt-14 md:pt-16 pb-6">
           <div className="px-3 sm:px-4 md:px-8 lg:px-12 tv:px-16">
-            {renderContent()}
+            <Suspense fallback={<ViewFallback />}>{renderContent()}</Suspense>
           </div>
         </main>
 
@@ -344,7 +385,7 @@ const Index = () => {
         )}
 
         {/* Floating mini-player — keeps content playing while user navigates */}
-        {playingChannel && isMiniPlayer && (
+        {playingChannel && isMiniPlayer && deviceMode !== "tv" && (
           <PlayerView
             channel={playingChannel}
             onBack={closePlayerCompletely}
