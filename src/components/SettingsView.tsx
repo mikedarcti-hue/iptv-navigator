@@ -316,25 +316,27 @@ const SettingsView = () => {
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Nome</label>
               <input
                 type="text"
+                autoFocus
                 value={epgName}
                 onChange={(e) => setEpgName(e.target.value)}
                 placeholder="Minha fonte EPG"
-                className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground outline-none focus:ring-1 focus:ring-primary/40"
+                className="tv-focus w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">URL</label>
               <input
                 type="url"
+                inputMode="url"
                 value={epgUrl}
                 onChange={(e) => setEpgUrl(e.target.value)}
                 placeholder="https://exemplo.com/epg.xml"
-                className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground outline-none focus:ring-1 focus:ring-primary/40"
+                className="tv-focus w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm text-foreground outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <button
               onClick={handleAddEpg}
-              className="w-full py-2.5 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-all"
+              className="tv-focus w-full py-2.5 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-all"
             >
               Adicionar
             </button>
