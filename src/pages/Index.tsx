@@ -228,8 +228,19 @@ const Index = () => {
   };
 
   const handleSectionChange = (section: string) => {
-    // If full player is open, minimize to keep playback alive while navigating
-    if (playingChannel && !isMiniPlayer) setIsMiniPlayer(true);
+    // TV mode: no mini-player. Close playback when navigating away.
+    if (playingChannel && !isMiniPlayer) {
+      if (deviceMode === "tv") {
+        setPlayingChannel(null);
+        setPlayingEpisodeKey(null);
+        setPlayingIsVod(false);
+        setPlayingSeriesInfo(null);
+        setIsMiniPlayer(false);
+        setReturnToItem(null);
+      } else {
+        setIsMiniPlayer(true);
+      }
+    }
     setSelectedItem(null);
     setActiveSection(section);
   };
@@ -252,12 +263,21 @@ const Index = () => {
   };
 
   const minimizePlayer = () => {
-    // Switch to mini-player overlay; keep playback alive
+    // TV mode: no PiP — fully close the player on back.
+    if (deviceMode === "tv") {
+      closePlayerCompletely();
+      if (returnToItem) {
+        setSelectedItem(returnToItem);
+        setReturnToItem(null);
+      } else if (!playingIsVod) {
+        setActiveSection("live");
+      }
+      return;
+    }
     setIsMiniPlayer(true);
     if (returnToItem) {
       setSelectedItem(returnToItem);
     } else {
-      // For live channels, return to live section
       if (!playingIsVod) setActiveSection("live");
     }
   };
