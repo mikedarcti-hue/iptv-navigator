@@ -1,17 +1,24 @@
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
+import React, { createContext, lazy, Suspense, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import TopNav from "@/components/TopNav";
-import BottomNav from "@/components/BottomNav";
-import DashboardView from "@/components/DashboardView";
 import LauncherHome from "@/components/LauncherHome";
-import LiveView from "@/components/LiveView";
-import VodGridView from "@/components/VodGridView";
-import FavoritesView from "@/components/FavoritesView";
-import SettingsView from "@/components/SettingsView";
-import PlayerView from "@/components/PlayerView";
-import VodDetailView from "@/components/VodDetailView";
-import SeriesDetailView from "@/components/SeriesDetailView";
 import DeviceModeSelector from "@/components/DeviceModeSelector";
 import ExitDialog from "@/components/ExitDialog";
+
+// Lazy-loaded heavy views (split bundles for faster startup on TV/mobile)
+const DashboardView = lazy(() => import("@/components/DashboardView"));
+const LiveView = lazy(() => import("@/components/LiveView"));
+const VodGridView = lazy(() => import("@/components/VodGridView"));
+const FavoritesView = lazy(() => import("@/components/FavoritesView"));
+const SettingsView = lazy(() => import("@/components/SettingsView"));
+const PlayerView = lazy(() => import("@/components/PlayerView"));
+const VodDetailView = lazy(() => import("@/components/VodDetailView"));
+const SeriesDetailView = lazy(() => import("@/components/SeriesDetailView"));
+
+const ViewFallback = () => (
+  <div className="flex items-center justify-center py-20">
+    <div className="w-10 h-10 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+  </div>
+);
 import { liveChannels as mockLiveChannels, movies as mockMovies, series as mockSeries } from "@/lib/mock-data";
 import type { Channel, VodItem, Episode } from "@/lib/mock-data";
 import { useCatalog } from "@/hooks/use-catalog";
