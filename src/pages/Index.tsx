@@ -59,7 +59,21 @@ const Index = () => {
   // Back button / popstate handling
   const handleBack = useCallback(() => {
     if (playingChannel && !isMiniPlayer) {
-      // Minimize to mini-player instead of closing
+      // TV mode: close player completely (no PiP). Mobile: minimize to mini-player.
+      if (deviceMode === "tv") {
+        setPlayingChannel(null);
+        setPlayingEpisodeKey(null);
+        setPlayingIsVod(false);
+        setPlayingSeriesInfo(null);
+        setIsMiniPlayer(false);
+        if (returnToItem) {
+          setSelectedItem(returnToItem);
+          setReturnToItem(null);
+        } else if (!playingIsVod) {
+          setActiveSection("live");
+        }
+        return;
+      }
       setIsMiniPlayer(true);
       if (returnToItem) {
         setSelectedItem(returnToItem);
