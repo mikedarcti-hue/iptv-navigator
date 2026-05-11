@@ -70,13 +70,14 @@ const TopNav = ({ activeSection, onSectionChange, globalSearch, onSearchChange }
                     key={item.id}
                     onClick={() => onSectionChange(item.id)}
                     className={cn(
-                      "px-3 py-1.5 rounded-md text-sm font-medium transition-all tv-focus",
+                      "w-10 h-10 rounded-lg flex items-center justify-center transition-all tv-focus",
                       activeSection === item.id
-                        ? "text-foreground"
-                        : "text-muted-foreground hover:text-foreground/80"
+                        ? "text-foreground bg-primary/10"
+                        : "text-muted-foreground hover:text-foreground/80 hover:bg-card/50"
                     )}
+                    title={item.id}
                   >
-                    {item.label}
+                    <item.icon className="w-6 h-6" />
                   </button>
                 ))}
               </nav>
