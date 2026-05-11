@@ -62,26 +62,7 @@ const TopNav = ({ activeSection, onSectionChange, globalSearch, onSearchChange }
               </span>
             </div>
 
-            {/* Desktop Nav */}
-            {!isMobile && (
-              <nav className="hidden md:flex items-center gap-1 ml-8">
-                {navItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => onSectionChange(item.id)}
-                    className={cn(
-                      "w-10 h-10 rounded-lg flex items-center justify-center transition-all tv-focus",
-                      activeSection === item.id
-                        ? "text-foreground bg-primary/10"
-                        : "text-muted-foreground hover:text-foreground/80 hover:bg-card/50"
-                    )}
-                    title={item.id}
-                  >
-                    <item.icon className="w-6 h-6" />
-                  </button>
-                ))}
-              </nav>
-            )}
+            {/* Desktop nav removed — navigation only via launcher tiles + back button */}
 
             {/* Right side */}
             <div className="flex items-center gap-2">
