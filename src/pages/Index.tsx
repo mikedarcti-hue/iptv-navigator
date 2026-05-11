@@ -326,14 +326,21 @@ const Index = () => {
           onSearchChange={setGlobalSearch}
         />
 
-        <main className="pt-14 md:pt-16 pb-20 md:pb-6">
+        <main className="pt-14 md:pt-16 pb-6">
           <div className="px-3 sm:px-4 md:px-8 lg:px-12 tv:px-16">
             {renderContent()}
           </div>
         </main>
 
-        {deviceMode === "mobile" && (
-          <BottomNav activeSection={activeSection} onSectionChange={handleSectionChange} />
+        {/* Floating back button for sections without their own header */}
+        {!playingChannel && !selectedItem && (activeSection === "live" || activeSection === "favorites" || activeSection === "settings") && (
+          <button
+            onClick={() => setActiveSection("dashboard")}
+            className="fixed top-3 md:top-4 left-3 md:left-6 z-40 w-10 h-10 md:w-11 md:h-11 rounded-full bg-card/80 backdrop-blur-xl border border-border/50 flex items-center justify-center hover:bg-surface-hover transition-colors tv-focus shadow-lg"
+            aria-label="Voltar"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+          </button>
         )}
 
         {/* Floating mini-player — keeps content playing while user navigates */}
