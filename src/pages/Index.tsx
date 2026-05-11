@@ -276,11 +276,8 @@ const Index = () => {
     switch (activeSection) {
       case "dashboard":
         return (
-          <DashboardView
+          <LauncherHome
             onNavigate={handleSectionChange}
-            onPlayChannel={handlePlayChannel}
-            onPlayVod={handlePlayVod}
-            onSelectItem={handleSelectItem}
             liveChannels={liveItems}
             movieItems={movieItems}
             seriesItems={seriesItems}
