@@ -378,7 +378,7 @@ const Index = () => {
         )}
 
         {/* Floating mini-player — keeps content playing while user navigates */}
-        {playingChannel && isMiniPlayer && (
+        {playingChannel && isMiniPlayer && deviceMode !== "tv" && (
           <PlayerView
             channel={playingChannel}
             onBack={closePlayerCompletely}
