@@ -25,12 +25,11 @@ const BottomNav = ({ activeSection, onSectionChange }: BottomNavProps) => {
               key={item.id}
               onClick={() => onSectionChange(item.id)}
               className={cn(
-                "flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-all min-w-0",
+                "flex items-center justify-center py-2 px-4 rounded-xl transition-all min-w-0",
                 isActive ? "text-primary" : "text-muted-foreground"
               )}
             >
-              <item.icon className={cn("w-5 h-5", isActive && "drop-shadow-[0_0_6px_hsl(var(--primary))]")} />
-              <span className="text-[10px] font-medium truncate">{item.label}</span>
+              <item.icon className={cn("w-7 h-7", isActive && "drop-shadow-[0_0_6px_hsl(var(--primary))]")} />
             </button>
           );
         })}
