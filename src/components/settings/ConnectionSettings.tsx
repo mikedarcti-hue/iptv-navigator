@@ -128,7 +128,14 @@ const ConnectionSettings = () => {
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-1">{group.title}</h3>
           <div className="glass-surface rounded-xl overflow-hidden card-shadow divide-y divide-border/50">
             {group.items.map((item) => (
-              <div key={item.label} onClick={item.onClick} className="flex items-center gap-4 p-4 hover:bg-surface-hover transition-colors cursor-pointer tv-focus">
+              <button
+                key={item.label}
+                type="button"
+                onClick={item.onClick}
+                disabled={!item.action}
+                tabIndex={item.action ? 0 : -1}
+                className="w-full text-left flex items-center gap-4 p-4 hover:bg-surface-hover focus:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer tv-focus disabled:cursor-default"
+              >
                 <div className="w-10 h-10 rounded-lg bg-surface flex items-center justify-center shrink-0">
                   <item.icon className={`w-5 h-5 text-muted-foreground ${item.label === "Sincronizar Catálogo" && syncing ? "animate-spin" : ""}`} />
                 </div>
@@ -137,7 +144,7 @@ const ConnectionSettings = () => {
                   <p className="text-xs text-muted-foreground truncate">{item.value}</p>
                 </div>
                 {item.action && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-              </div>
+              </button>
             ))}
           </div>
         </section>
