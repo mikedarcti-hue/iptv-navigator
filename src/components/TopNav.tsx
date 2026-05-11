@@ -13,11 +13,11 @@ interface TopNavProps {
 }
 
 const navItems = [
-  { id: "dashboard", label: "Início" },
-  { id: "live", label: "Ao Vivo", icon: Tv },
-  { id: "movies", label: "Filmes", icon: Film },
-  { id: "series", label: "Séries", icon: Clapperboard },
-  { id: "favorites", label: "Favoritos", icon: Heart },
+  { id: "dashboard", icon: Home },
+  { id: "live", icon: Tv },
+  { id: "movies", icon: Film },
+  { id: "series", icon: Clapperboard },
+  { id: "favorites", icon: Heart },
 ];
 
 const TopNav = ({ activeSection, onSectionChange, globalSearch, onSearchChange }: TopNavProps) => {
