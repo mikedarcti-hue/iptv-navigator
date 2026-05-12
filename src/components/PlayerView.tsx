@@ -269,17 +269,35 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     };
 
     const tryAutoplay = (v: HTMLVideoElement) => {
-      // Try unmuted first (per user request — start with audio)
-      v.muted = false;
+      // Start muted (browsers always allow muted autoplay), then attempt to unmute.
+      v.muted = true;
       const playPromise = v.play();
-      if (playPromise) {
-        playPromise.catch(() => {
-          // Browser blocked unmuted autoplay — fall back to muted
+      const tryUnmute = () => {
+        // Try unmuting after playback starts; if blocked, stay muted silently.
+        try {
+          v.muted = false;
+          setMuted(false);
+        } catch {
           v.muted = true;
           setMuted(true);
-          const retry = v.play();
-          if (retry) retry.catch(() => failWithFallback("O navegador bloqueou a reprodução automática"));
-        });
+        }
+      };
+      if (playPromise && typeof playPromise.then === "function") {
+        playPromise
+          .then(() => {
+            // Slight delay so the play state is committed before unmuting.
+            setTimeout(tryUnmute, 80);
+          })
+          .catch(() => {
+            // Even muted autoplay failed — likely the source is not ready or the
+            // tab lost focus. Don't show a "browser blocked" error: just keep
+            // the player ready and let the user tap to start.
+            v.muted = true;
+            setMuted(true);
+            setLoading(false);
+          });
+      } else {
+        setTimeout(tryUnmute, 80);
       }
     };
 
