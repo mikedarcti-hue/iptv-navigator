@@ -49,7 +49,82 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, url, type, server, username, password, seriesId, streamUrl } = await req.json();
+    const requestData = req.method === "GET"
+      ? Object.fromEntries(new URL(req.url).searchParams.entries())
+      : await req.json();
+    const { action, url, type, server, username, password, seriesId, streamUrl } = requestData;
+
+    if (action === "proxy_media") {
+      if (!streamUrl) {
+        return json({ success: false, error: "streamUrl é obrigatório" }, 400);
+      }
+
+      const response = await fetchWithDns(streamUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Mobile Safari/537.36",
+          "Accept": "*/*",
+          "Referer": new URL(streamUrl).origin + "/",
+        },
+      }, 30000);
+
+      if (!response.ok) {
+        return json({ success: false, error: `HTTP ${response.status}` }, 400);
+      }
+
+      const contentType = response.headers.get("content-type") || "application/octet-stream";
+      const isM3U8 = streamUrl.toLowerCase().includes(".m3u8") || contentType.includes("mpegurl") || contentType.includes("m3u");
+
+      if (isM3U8) {
+        const text = await response.text();
+        const baseUrlOfStream = streamUrl.substring(0, streamUrl.lastIndexOf("/") + 1);
+        const proxyBase = new URL(req.url);
+        proxyBase.search = "";
+
+        const toAbsoluteUrl = (value: string) => {
+          try {
+            return new URL(value, baseUrlOfStream).toString();
+          } catch {
+            return value;
+          }
+        };
+
+        const proxify = (value: string) => {
+          const absolute = toAbsoluteUrl(value);
+          const params = new URLSearchParams({ action: "proxy_media", streamUrl: absolute });
+          return `${proxyBase.toString()}?${params.toString()}`;
+        };
+
+        const rewritten = text.split("\n").map((line) => {
+          const trimmed = line.trim();
+          if (!trimmed) return line;
+          if (trimmed.startsWith("#")) {
+            if (trimmed.includes('URI="')) {
+              return line.replace(/URI="([^"]+)"/g, (_match, uri) => `URI="${proxify(uri)}"`);
+            }
+            return line;
+          }
+          return proxify(trimmed);
+        }).join("\n");
+
+        return new Response(rewritten, {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/vnd.apple.mpegurl",
+            "Cache-Control": "no-cache, no-store",
+          },
+        });
+      }
+
+      return new Response(response.body, {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": contentType,
+          "Cache-Control": "no-cache",
+        },
+      });
+    }
 
     if (action === "test") {
       if (type === "m3u") {
