@@ -52,6 +52,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const hlsRef = useRef<Hls | null>(null);
   const mpegtsRef = useRef<any>(null);
   const attemptRef = useRef(0);
+  const proxyAttemptedRef = useRef(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const retryTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const fragRetryCount = useRef(0);
@@ -80,6 +81,12 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const proxyEndpoint = supabaseUrl ? `${supabaseUrl}/functions/v1/iptv-proxy` : null;
+  const buildProxyUrl = useCallback((streamUrl: string) => {
+    if (!proxyEndpoint || !streamUrl) return streamUrl;
+    if (streamUrl.startsWith(proxyEndpoint)) return streamUrl;
+    const params = new URLSearchParams({ action: "proxy_media", streamUrl });
+    return `${proxyEndpoint}?${params.toString()}`;
+  }, [proxyEndpoint]);
 
   const isLiveStream = useMemo(() => {
     if (isVod) return false;
@@ -232,6 +239,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
 
     let active = true;
     attemptRef.current = 0;
+    proxyAttemptedRef.current = false;
     fragRetryCount.current = 0;
 
     const cleanupPlayers = () => {
@@ -259,7 +267,8 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         }, 500);
         return;
       }
-      if (isLiveStream && proxyEndpoint && !attemptRef.current.toString().includes("proxy")) {
+      if (isLiveStream && proxyEndpoint && !proxyAttemptedRef.current) {
+        proxyAttemptedRef.current = true;
         tryViaProxy(streamCandidates[0]);
         return;
       }
@@ -303,6 +312,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
 
     const tryViaProxy = async (originalUrl: string) => {
       if (!active || !proxyEndpoint || !supabaseKey) { failWithFallback("Canal indisponível"); return; }
+      proxyAttemptedRef.current = true;
       cleanupPlayers();
       setLoading(true);
       setError(false);
@@ -373,20 +383,26 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     const loadCandidate = (candidateUrl: string) => {
       cleanupPlayers(); setLoading(true); setError(false); fragRetryCount.current = 0;
       const url = candidateUrl;
+      const proxiedUrl = buildProxyUrl(url);
+      const shouldPreferProxy = isTvMode && !!proxyEndpoint;
       const normalizedUrl = url.toLowerCase();
       const isHlsUrl = normalizedUrl.includes(".m3u8") || normalizedUrl.includes("output=m3u8");
       const isMpegTsUrl = normalizedUrl.endsWith(".ts") || (normalizedUrl.includes("/live/") && normalizedUrl.includes(".ts"));
       const isDirectVideo = /\.(mp4|mkv|avi|mov|webm)(\?|$)/.test(normalizedUrl);
       const urlIsLive = isHlsUrl || isMpegTsUrl || (!isDirectVideo && isLiveStream);
 
-      if (isDirectVideo) { video.src = url; tryAutoplay(video); return; }
+      if (shouldPreferProxy) {
+        proxyAttemptedRef.current = true;
+      }
+
+      if (isDirectVideo) { video.src = shouldPreferProxy ? proxiedUrl : url; tryAutoplay(video); return; }
 
       if (isHlsUrl) {
         if (Hls.isSupported()) {
           const hls = new Hls(buildHlsConfig(urlIsLive));
           hlsRef.current = hls;
           hls.attachMedia(video);
-          hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(url));
+          hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(shouldPreferProxy ? proxiedUrl : url));
           hls.on(Hls.Events.MANIFEST_PARSED, () => tryAutoplay(video));
           const manifestTimeout = setTimeout(() => { if (active && loading) { hls.destroy(); hlsRef.current = null; failWithFallback("Timeout ao carregar o manifesto HLS"); } }, 8000);
           hls.on(Hls.Events.MANIFEST_PARSED, () => clearTimeout(manifestTimeout));
@@ -399,11 +415,11 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           });
           return;
         }
-        if (video.canPlayType("application/vnd.apple.mpegurl")) { video.src = url; tryAutoplay(video); return; }
+        if (video.canPlayType("application/vnd.apple.mpegurl")) { video.src = shouldPreferProxy ? proxiedUrl : url; tryAutoplay(video); return; }
       }
 
       if (isMpegTsUrl && mpegts.getFeatureList().mseLivePlayback) {
-        const player = mpegts.createPlayer({ type: "mpegts", isLive: true, url, hasAudio: true, hasVideo: true },
+        const player = mpegts.createPlayer({ type: "mpegts", isLive: true, url: shouldPreferProxy ? proxiedUrl : url, hasAudio: true, hasVideo: true },
           { enableWorker: true, enableStashBuffer: false, stashInitialSize: 128, liveBufferLatencyChasing: true, liveBufferLatencyMaxLatency: 3.0, liveBufferLatencyMinRemain: 0.5, lazyLoad: false, lazyLoadMaxDuration: 0, autoCleanupSourceBuffer: true, autoCleanupMaxBackwardDuration: 3, autoCleanupMinBackwardDuration: 1, headers: { "User-Agent": TV_USER_AGENT } });
         mpegtsRef.current = player;
         player.attachMediaElement(video);
@@ -418,7 +434,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         const hls = new Hls(buildHlsConfig(urlIsLive));
         hlsRef.current = hls;
         hls.attachMedia(video);
-        hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(url));
+        hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(shouldPreferProxy ? proxiedUrl : url));
         hls.on(Hls.Events.MANIFEST_PARSED, () => tryAutoplay(video));
         const unknownTimeout = setTimeout(() => { if (active && loading) { hls.destroy(); hlsRef.current = null; failWithFallback("Formato não reconhecido"); } }, 6000);
         hls.on(Hls.Events.MANIFEST_PARSED, () => clearTimeout(unknownTimeout));
@@ -427,7 +443,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           clearTimeout(unknownTimeout);
           hls.destroy(); hlsRef.current = null;
           if (mpegts.getFeatureList().mseLivePlayback) {
-            const tsPlayer = mpegts.createPlayer({ type: "mpegts", isLive: true, url, hasAudio: true, hasVideo: true },
+            const tsPlayer = mpegts.createPlayer({ type: "mpegts", isLive: true, url: shouldPreferProxy ? proxiedUrl : url, hasAudio: true, hasVideo: true },
               { enableWorker: true, enableStashBuffer: false, stashInitialSize: 128, liveBufferLatencyChasing: true, autoCleanupSourceBuffer: true, headers: { "User-Agent": TV_USER_AGENT } });
             mpegtsRef.current = tsPlayer;
             tsPlayer.attachMediaElement(video);
@@ -439,7 +455,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         });
         return;
       }
-      video.src = url; tryAutoplay(video);
+      video.src = shouldPreferProxy ? proxiedUrl : url; tryAutoplay(video);
     };
 
     const handlePlaying = () => { if (!active) return; setLoading(false); setError(false); setPaused(false); setBufferLow(false); };
@@ -492,7 +508,7 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       video.removeEventListener("ended", handleEnded);
       cleanupPlayers();
     };
-  }, [streamCandidates, episodeKey, channel.name, isLiveStream, proxyEndpoint, supabaseKey]);
+  }, [streamCandidates, episodeKey, channel.name, isLiveStream, proxyEndpoint, supabaseKey, isTvMode, buildProxyUrl]);
 
   useEffect(() => { if (videoRef.current) videoRef.current.muted = muted; }, [muted]);
   useEffect(() => { setSkipIntroDismissed(false); }, [episodeKey, channel.id]);
