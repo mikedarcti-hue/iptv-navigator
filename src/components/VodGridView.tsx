@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import VodCard from "./VodCard";
 import VodDetailView from "./VodDetailView";
 import SeriesDetailView from "./SeriesDetailView";
+import ContinueWatchingRow, { type WatchedEntry } from "./ContinueWatchingRow";
 import type { VodItem, Episode } from "@/lib/mock-data";
 import { Search, X, ArrowLeft, Play, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { useDeviceMode } from "@/pages/Index";
 import { cn } from "@/lib/utils";
+import { getAllProgress } from "@/lib/watch-progress";
 
 interface VodGridViewProps {
   title: string;
@@ -85,6 +87,35 @@ const VodGridView = ({ title, items, onPlayVod, onPlayEpisode, onBack }: VodGrid
 
   // Latest added (assume order in items reflects newest first)
   const latestItems = useMemo(() => items.slice(0, 24), [items]);
+
+  // Recently watched series episodes (mobile/tablet only)
+  const isSeriesView = title.toLowerCase().includes("séri") || title.toLowerCase().includes("seri");
+  const recentSeriesEntries = useMemo<WatchedEntry[]>(() => {
+    if (!isSeriesView || isTvMode) return [];
+    const all = getAllProgress();
+    const byItem = new Map<string, WatchedEntry>();
+    Object.values(all).forEach((p) => {
+      const m = p.itemId.match(/^(.+)-S\d+E\d+$/);
+      if (!m) return;
+      const seriesId = m[1];
+      const item = items.find((i) => i.id === seriesId);
+      if (!item) return;
+      const existing = byItem.get(seriesId);
+      if (!existing || existing.updatedAt < p.updatedAt) {
+        byItem.set(seriesId, {
+          itemId: p.itemId,
+          currentTime: p.currentTime,
+          duration: p.duration,
+          updatedAt: p.updatedAt,
+          label: p.label,
+          item,
+        });
+      }
+    });
+    return Array.from(byItem.values())
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .slice(0, 12);
+  }, [items, isSeriesView, isTvMode]);
 
   useEffect(() => setVisibleCount(INITIAL), [items, search, selectedGenre]);
 
@@ -249,6 +280,14 @@ const VodGridView = ({ title, items, onPlayVod, onPlayEpisode, onBack }: VodGrid
             })}
           </div>
         </section>
+      )}
+
+      {/* CONTINUAR ASSISTINDO (séries, mobile/tablet) */}
+      {!isFiltering && recentSeriesEntries.length > 0 && (
+        <ContinueWatchingRow
+          entries={recentSeriesEntries}
+          onResume={(entry) => { if (entry.item) setSelectedItem(entry.item); }}
+        />
       )}
 
       {/* RECENTES */}
