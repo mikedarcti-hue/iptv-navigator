@@ -178,7 +178,7 @@ const SeriesDetailView = ({ item, onBack, onPlayEpisode }: SeriesDetailViewProps
                 <button
                   onClick={() => {
                     if (lpEpisode && lpSeasonNum != null) {
-                      onPlayEpisode(item, lpEpisode, lpSeasonNum);
+                      onPlayEpisode({ ...item, seasons }, lpEpisode, lpSeasonNum);
                     }
                   }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/30 mt-4 transition-all text-left group"
