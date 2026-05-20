@@ -229,7 +229,7 @@ const SeriesDetailView = ({ item, onBack, onPlayEpisode }: SeriesDetailViewProps
                   key={ep.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  onClick={() => onPlayEpisode(item, ep, selectedSeason)}
+                  onClick={() => onPlayEpisode({ ...item, seasons }, ep, selectedSeason)}
                   className="w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl bg-surface hover:bg-surface-hover border border-border transition-all text-left group"
                 >
                   <div className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center">
