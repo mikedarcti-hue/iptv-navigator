@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import VodCard from "./VodCard";
 import VodDetailView from "./VodDetailView";
 import SeriesDetailView from "./SeriesDetailView";
+import ContinueWatchingRow, { type WatchedEntry } from "./ContinueWatchingRow";
 import type { VodItem, Episode } from "@/lib/mock-data";
 import { Search, X, ArrowLeft, Play, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { useDeviceMode } from "@/pages/Index";
 import { cn } from "@/lib/utils";
+import { getAllProgress } from "@/lib/watch-progress";
 
 interface VodGridViewProps {
   title: string;
