@@ -13,13 +13,17 @@ export interface WatchProgress {
   label?: string;
 }
 
-function getAll(): Record<string, WatchProgress> {
+export function getAllProgress(): Record<string, WatchProgress> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
   }
+}
+
+function getAll(): Record<string, WatchProgress> {
+  return getAllProgress();
 }
 
 function saveAll(data: Record<string, WatchProgress>) {
