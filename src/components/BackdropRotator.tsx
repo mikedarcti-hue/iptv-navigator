@@ -12,10 +12,15 @@ interface BackdropRotatorProps {
  * interfere with cards/text readability.
  */
 const BackdropRotator = ({ items, intervalMs = 30000 }: BackdropRotatorProps) => {
-  const posters = useMemo(
-    () => items.filter((i) => !!i.poster).slice(0, 40).map((i) => i.poster as string),
-    [items]
-  );
+  const posters = useMemo(() => {
+    const list = items.filter((i) => !!i.poster).map((i) => i.poster as string);
+    // Deterministic shuffle so movies & series intermix
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = Math.floor(((i * 9301 + 49297) % 233280) / 233280 * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    return list.slice(0, 60);
+  }, [items]);
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
