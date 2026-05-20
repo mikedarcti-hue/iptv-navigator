@@ -361,7 +361,7 @@ const Index = () => {
   return (
     <DeviceModeContext.Provider value={deviceMode}>
       <div className="min-h-screen bg-background relative" data-device={deviceMode}>
-        <BackdropRotator items={movieItems} intervalMs={30000} />
+        <BackdropRotator items={[...movieItems, ...seriesItems]} intervalMs={15000} />
         <TopNav
           activeSection={activeSection}
           onSectionChange={handleSectionChange}
