@@ -282,6 +282,14 @@ const VodGridView = ({ title, items, onPlayVod, onPlayEpisode, onBack }: VodGrid
         </section>
       )}
 
+      {/* CONTINUAR ASSISTINDO (séries, mobile/tablet) */}
+      {!isFiltering && recentSeriesEntries.length > 0 && (
+        <ContinueWatchingRow
+          entries={recentSeriesEntries}
+          onResume={(entry) => { if (entry.item) setSelectedItem(entry.item); }}
+        />
+      )}
+
       {/* RECENTES */}
       {!isFiltering && latestItems.length > 0 && (
         <section>
