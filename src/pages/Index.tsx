@@ -360,7 +360,8 @@ const Index = () => {
 
   return (
     <DeviceModeContext.Provider value={deviceMode}>
-      <div className="min-h-screen bg-background" data-device={deviceMode}>
+      <div className="min-h-screen bg-background relative" data-device={deviceMode}>
+        <BackdropRotator items={movieItems} intervalMs={30000} />
         <TopNav
           activeSection={activeSection}
           onSectionChange={handleSectionChange}
