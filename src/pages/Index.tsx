@@ -1,6 +1,7 @@
 import React, { createContext, lazy, Suspense, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import TopNav from "@/components/TopNav";
 import LauncherHome from "@/components/LauncherHome";
+import BackdropRotator from "@/components/BackdropRotator";
 import DeviceModeSelector from "@/components/DeviceModeSelector";
 import ExitDialog from "@/components/ExitDialog";
 
