@@ -163,10 +163,35 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   }, [isTvMode, screenLocked, isLiveStream, resetHideTimer]);
 
   useEffect(() => {
-    if (videoRef.current && 'remote' in videoRef.current) {
+    const video = videoRef.current as any;
+    // RemotePlayback (Chrome Android nativo) ou AirPlay (Safari iOS)
+    if (video && ('remote' in video || typeof video.webkitShowPlaybackTargetPicker === 'function')) {
       setCastAvailable(true);
     }
-  }, []);
+    // Em modo mobile, carrega o Google Cast SDK uma vez para Chromecast
+    if (isTvMode) return;
+    if ((window as any).__castSdkLoading) return;
+    if (document.getElementById('google-cast-sdk')) return;
+    (window as any).__castSdkLoading = true;
+    (window as any).__onGCastApiAvailable = (isAvailable: boolean) => {
+      if (!isAvailable) return;
+      try {
+        const cast = (window as any).cast;
+        const chrome = (window as any).chrome;
+        cast.framework.CastContext.getInstance().setOptions({
+          receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+          autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
+        });
+        setCastAvailable(true);
+      } catch (e) { console.warn('[CAST] init falhou', e); }
+    };
+    const s = document.createElement('script');
+    s.id = 'google-cast-sdk';
+    s.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
+    s.async = true;
+    document.head.appendChild(s);
+  }, [isTvMode]);
+
 
   // Monitor buffer health
   useEffect(() => {
@@ -550,12 +575,48 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   };
 
   const handleCast = async () => {
-    const video = videoRef.current;
-    if (!video || !('remote' in video)) return;
-    try { // @ts-ignore
-      await video.remote.prompt();
-    } catch (e) { console.log("Cast não disponível:", e); }
+    const video = videoRef.current as any;
+    if (!video) return;
+    // 1) Google Cast (Chromecast) — preferido em mobile
+    try {
+      const cast = (window as any).cast;
+      const chrome = (window as any).chrome;
+      if (cast?.framework && chrome?.cast) {
+        const ctx = cast.framework.CastContext.getInstance();
+        await ctx.requestSession();
+        const session = ctx.getCurrentSession();
+        if (session) {
+          const src = video.currentSrc || video.src || channel.url;
+          const isHls = /\.m3u8(\?|$)/i.test(src);
+          const contentType = isHls ? 'application/x-mpegURL' : 'video/mp4';
+          const mediaInfo = new chrome.cast.media.MediaInfo(src, contentType);
+          mediaInfo.metadata = new chrome.cast.media.GenericMediaMetadata();
+          mediaInfo.metadata.title = channel.name;
+          if (channel.logo) mediaInfo.metadata.images = [new chrome.cast.Image(channel.logo)];
+          const request = new chrome.cast.media.LoadRequest(mediaInfo);
+          if (!isLiveStream && video.currentTime) request.currentTime = video.currentTime;
+          await session.loadMedia(request);
+          try { video.pause(); } catch {}
+          return;
+        }
+      }
+    } catch (e) { console.log('[CAST] Chromecast indisponível:', e); }
+    // 2) AirPlay (Safari iOS)
+    try {
+      if (typeof video.webkitShowPlaybackTargetPicker === 'function') {
+        video.webkitShowPlaybackTargetPicker();
+        return;
+      }
+    } catch {}
+    // 3) RemotePlayback API (fallback Chrome desktop / outros)
+    try {
+      if ('remote' in video) {
+        await video.remote.prompt();
+        return;
+      }
+    } catch (e) { console.log('Cast não disponível:', e); }
   };
+
 
   const cycleAspect = () => {
     setAspectMode((prev) => {
@@ -756,7 +817,9 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           autoPlay
           playsInline
           controls={false}
+          {...({ "x-webkit-airplay": "allow" } as any)}
         />
+
 
         {/* Mini player controls */}
         {isMini && (
@@ -914,7 +977,8 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
                   className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus">
                   {muted ? <VolumeX className="w-4 h-4 text-white" /> : <Volume2 className="w-4 h-4 text-white" />}
                 </button>
-                {castAvailable && (
+                {(castAvailable || !isTvMode) && (
+
                   <button ref={(el) => registerBtn(el, isLive ? 2 : 4)} onClick={(e) => { e.stopPropagation(); handleCast(); }}
                     className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus" title="Transmitir">
                     <Cast className="w-4 h-4 text-white" />
