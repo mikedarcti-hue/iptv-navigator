@@ -756,7 +756,9 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           autoPlay
           playsInline
           controls={false}
+          {...({ "x-webkit-airplay": "allow" } as any)}
         />
+
 
         {/* Mini player controls */}
         {isMini && (
