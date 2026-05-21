@@ -549,6 +549,31 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const seekBy = (seconds: number) => { const video = videoRef.current; if (!video || !isFinite(video.duration)) return; video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + seconds)); };
 
   const toggleFullscreen = async () => {
+    const target = containerRef.current;
+    if (!target) return;
+    try {
+      if (!document.fullscreenElement) {
+        if (target.requestFullscreen) await target.requestFullscreen();
+        else if ((target as any).webkitRequestFullscreen) (target as any).webkitRequestFullscreen();
+        else if ((target as any).msRequestFullscreen) (target as any).msRequestFullscreen();
+        // Lock orientation to landscape on mobile
+        try {
+          const orientation: any = (screen as any).orientation;
+          if (orientation && typeof orientation.lock === "function") {
+            await orientation.lock("landscape").catch(() => {});
+          }
+        } catch {}
+      } else {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
+        try {
+          const orientation: any = (screen as any).orientation;
+          if (orientation && typeof orientation.unlock === "function") orientation.unlock();
+        } catch {}
+      }
+    } catch (e) { console.warn("[DARK IPTV] Fullscreen error:", e); }
+  };
+
   const handleCast = async () => {
     const video = videoRef.current as any;
     if (!video) return;
@@ -592,31 +617,6 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     } catch (e) { console.log('Cast não disponível:', e); }
   };
 
-        // Lock orientation to landscape on mobile
-        try {
-          const orientation: any = (screen as any).orientation;
-          if (orientation && typeof orientation.lock === "function") {
-            await orientation.lock("landscape").catch(() => {});
-          }
-        } catch {}
-      } else {
-        if (document.exitFullscreen) await document.exitFullscreen();
-        else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
-        try {
-          const orientation: any = (screen as any).orientation;
-          if (orientation && typeof orientation.unlock === "function") orientation.unlock();
-        } catch {}
-      }
-    } catch (e) { console.warn("[DARK IPTV] Fullscreen error:", e); }
-  };
-
-  const handleCast = async () => {
-    const video = videoRef.current;
-    if (!video || !('remote' in video)) return;
-    try { // @ts-ignore
-      await video.remote.prompt();
-    } catch (e) { console.log("Cast não disponível:", e); }
-  };
 
   const cycleAspect = () => {
     setAspectMode((prev) => {
