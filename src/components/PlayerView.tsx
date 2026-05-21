@@ -24,6 +24,8 @@ import type { Channel } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { useDeviceMode } from "@/pages/Index";
 import { getPreferences, applyStreamFormat } from "@/lib/app-preferences";
+import { toast } from "@/hooks/use-toast";
+
 
 const TV_USER_AGENT =
   "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Mobile Safari/537.36";
@@ -577,12 +579,33 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const handleCast = async () => {
     const video = videoRef.current as any;
     if (!video) return;
-    // 1) Google Cast (Chromecast) — preferido em mobile
+
+    // Detecta iframe (preview Lovable bloqueia Cast SDK por permissions policy)
+    const inIframe = (() => { try { return window.self !== window.top; } catch { return true; } })();
+
+    // 1) AirPlay (Safari iOS / macOS) — funciona mesmo em iframe
     try {
-      const cast = (window as any).cast;
-      const chrome = (window as any).chrome;
-      if (cast?.framework && chrome?.cast) {
+      if (typeof video.webkitShowPlaybackTargetPicker === 'function') {
+        video.webkitShowPlaybackTargetPicker();
+        return;
+      }
+    } catch {}
+
+    // 2) Google Cast (Chromecast)
+    const cast = (window as any).cast;
+    const chrome = (window as any).chrome;
+    if (cast?.framework && chrome?.cast) {
+      try {
         const ctx = cast.framework.CastContext.getInstance();
+        const state = ctx.getCastState?.();
+        // NO_DEVICES_AVAILABLE = nenhum Chromecast/Google TV na rede
+        if (state === 'NO_DEVICES_AVAILABLE') {
+          toast({
+            title: 'Nenhum dispositivo encontrado',
+            description: 'Verifique se a TV/Chromecast está ligada e conectada na mesma rede WiFi.',
+          });
+          return;
+        }
         await ctx.requestSession();
         const session = ctx.getCurrentSession();
         if (session) {
@@ -597,25 +620,40 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
           if (!isLiveStream && video.currentTime) request.currentTime = video.currentTime;
           await session.loadMedia(request);
           try { video.pause(); } catch {}
+          toast({ title: 'Transmitindo para a TV', description: 'Reprodução enviada ao dispositivo.' });
           return;
         }
-      }
-    } catch (e) { console.log('[CAST] Chromecast indisponível:', e); }
-    // 2) AirPlay (Safari iOS)
-    try {
-      if (typeof video.webkitShowPlaybackTargetPicker === 'function') {
-        video.webkitShowPlaybackTargetPicker();
+      } catch (e: any) {
+        // "cancel" = usuário fechou o diálogo
+        if (e?.code !== 'cancel' && e !== 'cancel') {
+          console.log('[CAST] erro:', e);
+        }
         return;
       }
-    } catch {}
-    // 3) RemotePlayback API (fallback Chrome desktop / outros)
+    }
+
+    // 3) RemotePlayback API (fallback)
     try {
       if ('remote' in video) {
         await video.remote.prompt();
         return;
       }
-    } catch (e) { console.log('Cast não disponível:', e); }
+    } catch (e) { console.log('Cast indisponível:', e); }
+
+    // 4) Sem nenhum método disponível
+    if (inIframe) {
+      toast({
+        title: 'Transmissão indisponível no preview',
+        description: 'O Chromecast funciona apenas no app publicado/instalado. Abra a URL publicada no Chrome ou no app Android.',
+      });
+    } else {
+      toast({
+        title: 'Transmissão não suportada',
+        description: 'Use o Chrome no Android ou Safari no iOS com um dispositivo compatível (Chromecast, AirPlay) na mesma rede.',
+      });
+    }
   };
+
 
 
   const cycleAspect = () => {
