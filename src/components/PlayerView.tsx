@@ -977,7 +977,8 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
                   className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus">
                   {muted ? <VolumeX className="w-4 h-4 text-white" /> : <Volume2 className="w-4 h-4 text-white" />}
                 </button>
-                {castAvailable && (
+                {(castAvailable || !isTvMode) && (
+
                   <button ref={(el) => registerBtn(el, isLive ? 2 : 4)} onClick={(e) => { e.stopPropagation(); handleCast(); }}
                     className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 focus:bg-primary/40 focus:outline-none focus:ring-2 focus:ring-primary transition-colors tv-focus" title="Transmitir">
                     <Cast className="w-4 h-4 text-white" />
