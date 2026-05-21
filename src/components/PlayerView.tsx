@@ -549,13 +549,49 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const seekBy = (seconds: number) => { const video = videoRef.current; if (!video || !isFinite(video.duration)) return; video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + seconds)); };
 
   const toggleFullscreen = async () => {
-    const target = containerRef.current;
-    if (!target) return;
+  const handleCast = async () => {
+    const video = videoRef.current as any;
+    if (!video) return;
+    // 1) Google Cast (Chromecast) — preferido em mobile
     try {
-      if (!document.fullscreenElement) {
-        if (target.requestFullscreen) await target.requestFullscreen();
-        else if ((target as any).webkitRequestFullscreen) (target as any).webkitRequestFullscreen();
-        else if ((target as any).msRequestFullscreen) (target as any).msRequestFullscreen();
+      const cast = (window as any).cast;
+      const chrome = (window as any).chrome;
+      if (cast?.framework && chrome?.cast) {
+        const ctx = cast.framework.CastContext.getInstance();
+        await ctx.requestSession();
+        const session = ctx.getCurrentSession();
+        if (session) {
+          const src = video.currentSrc || video.src || channel.url;
+          const isHls = /\.m3u8(\?|$)/i.test(src);
+          const contentType = isHls ? 'application/x-mpegURL' : 'video/mp4';
+          const mediaInfo = new chrome.cast.media.MediaInfo(src, contentType);
+          mediaInfo.metadata = new chrome.cast.media.GenericMediaMetadata();
+          mediaInfo.metadata.title = channel.name;
+          if (channel.logo) mediaInfo.metadata.images = [new chrome.cast.Image(channel.logo)];
+          const request = new chrome.cast.media.LoadRequest(mediaInfo);
+          if (!isLiveStream && video.currentTime) request.currentTime = video.currentTime;
+          await session.loadMedia(request);
+          try { video.pause(); } catch {}
+          return;
+        }
+      }
+    } catch (e) { console.log('[CAST] Chromecast indisponível:', e); }
+    // 2) AirPlay (Safari iOS)
+    try {
+      if (typeof video.webkitShowPlaybackTargetPicker === 'function') {
+        video.webkitShowPlaybackTargetPicker();
+        return;
+      }
+    } catch {}
+    // 3) RemotePlayback API (fallback Chrome desktop / outros)
+    try {
+      if ('remote' in video) {
+        await video.remote.prompt();
+        return;
+      }
+    } catch (e) { console.log('Cast não disponível:', e); }
+  };
+
         // Lock orientation to landscape on mobile
         try {
           const orientation: any = (screen as any).orientation;
