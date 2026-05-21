@@ -163,10 +163,35 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   }, [isTvMode, screenLocked, isLiveStream, resetHideTimer]);
 
   useEffect(() => {
-    if (videoRef.current && 'remote' in videoRef.current) {
+    const video = videoRef.current as any;
+    // RemotePlayback (Chrome Android nativo) ou AirPlay (Safari iOS)
+    if (video && ('remote' in video || typeof video.webkitShowPlaybackTargetPicker === 'function')) {
       setCastAvailable(true);
     }
-  }, []);
+    // Em modo mobile, carrega o Google Cast SDK uma vez para Chromecast
+    if (isTvMode) return;
+    if ((window as any).__castSdkLoading) return;
+    if (document.getElementById('google-cast-sdk')) return;
+    (window as any).__castSdkLoading = true;
+    (window as any).__onGCastApiAvailable = (isAvailable: boolean) => {
+      if (!isAvailable) return;
+      try {
+        const cast = (window as any).cast;
+        const chrome = (window as any).chrome;
+        cast.framework.CastContext.getInstance().setOptions({
+          receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+          autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
+        });
+        setCastAvailable(true);
+      } catch (e) { console.warn('[CAST] init falhou', e); }
+    };
+    const s = document.createElement('script');
+    s.id = 'google-cast-sdk';
+    s.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
+    s.async = true;
+    document.head.appendChild(s);
+  }, [isTvMode]);
+
 
   // Monitor buffer health
   useEffect(() => {
