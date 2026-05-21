@@ -24,6 +24,8 @@ import type { Channel } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { useDeviceMode } from "@/pages/Index";
 import { getPreferences, applyStreamFormat } from "@/lib/app-preferences";
+import { toast } from "@/hooks/use-toast";
+
 
 const TV_USER_AGENT =
   "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Mobile Safari/537.36";
