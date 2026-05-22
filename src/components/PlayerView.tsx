@@ -411,18 +411,23 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       cleanupPlayers(); setLoading(true); setError(false); fragRetryCount.current = 0;
       const url = candidateUrl;
       const proxiedUrl = buildProxyUrl(url);
-      const shouldPreferProxy = isTvMode && !!proxyEndpoint;
       const normalizedUrl = url.toLowerCase();
       const isHlsUrl = normalizedUrl.includes(".m3u8") || normalizedUrl.includes("output=m3u8");
       const isMpegTsUrl = normalizedUrl.endsWith(".ts") || (normalizedUrl.includes("/live/") && normalizedUrl.includes(".ts"));
       const isDirectVideo = /\.(mp4|mkv|avi|mov|webm)(\?|$)/.test(normalizedUrl);
       const urlIsLive = isHlsUrl || isMpegTsUrl || (!isDirectVideo && isLiveStream);
 
+      // TV mode: only route LIVE streams through the proxy (Smart TV UA spoof).
+      // VOD (movies/series) must hit the origin directly — proxying large mp4/mkv
+      // through the edge function makes playback unreliable on TV Boxes.
+      const shouldPreferProxy = isTvMode && !!proxyEndpoint && urlIsLive && !isVod;
+
       if (shouldPreferProxy) {
         proxyAttemptedRef.current = true;
       }
 
       if (isDirectVideo) { video.src = shouldPreferProxy ? proxiedUrl : url; tryAutoplay(video); return; }
+
 
       if (isHlsUrl) {
         if (Hls.isSupported()) {
