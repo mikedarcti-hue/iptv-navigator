@@ -72,6 +72,27 @@ const SeriesDetailView = ({ item, onBack, onPlayEpisode, autoPlay = false }: Ser
 
   useEffect(() => { fetchSeriesInfo(); }, [fetchSeriesInfo]);
 
+  // TV mode: auto-start playback in fullscreen as soon as episodes are available.
+  const [autoPlayed, setAutoPlayed] = useState(false);
+  useEffect(() => {
+    if (!autoPlay || autoPlayed || loading || seasons.length === 0) return;
+    const lp = getSeriesProgress(item.id);
+    const m = lp?.itemId.match(/-S(\d+)E(\d+)$/);
+    let targetSeason = seasons[0];
+    let targetEpisode = targetSeason?.episodes[0];
+    if (m) {
+      const sNum = parseInt(m[1], 10);
+      const eNum = parseInt(m[2], 10);
+      const s = seasons.find((x) => x.seasonNumber === sNum);
+      const e = s?.episodes.find((x) => x.episodeNum === eNum);
+      if (s && e) { targetSeason = s; targetEpisode = e; }
+    }
+    if (targetSeason && targetEpisode && targetEpisode.streamUrl) {
+      setAutoPlayed(true);
+      onPlayEpisode({ ...item, seasons }, targetEpisode, targetSeason.seasonNumber);
+    }
+  }, [autoPlay, autoPlayed, loading, seasons, item, onPlayEpisode]);
+
   const currentSeasonData = seasons.find((s) => s.seasonNumber === selectedSeason);
   const episodes = currentSeasonData?.episodes || [];
   const lastProgress = getSeriesProgress(item.id);
