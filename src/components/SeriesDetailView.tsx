@@ -14,9 +14,10 @@ interface SeriesDetailViewProps {
   item: VodItem;
   onBack: () => void;
   onPlayEpisode: (item: VodItem, episode: Episode, seasonNumber: number) => void;
+  autoPlay?: boolean;
 }
 
-const SeriesDetailView = ({ item, onBack, onPlayEpisode }: SeriesDetailViewProps) => {
+const SeriesDetailView = ({ item, onBack, onPlayEpisode, autoPlay = false }: SeriesDetailViewProps) => {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [seasons, setSeasons] = useState<Season[]>(item.seasons || []);
   const [selectedSeason, setSelectedSeason] = useState(1);
