@@ -316,7 +316,7 @@ const Index = () => {
 
     if (selectedItem) {
       if (selectedItem.type === "series") {
-        return <SeriesDetailView item={selectedItem} onBack={() => setSelectedItem(null)} onPlayEpisode={handlePlayEpisode} />;
+        return <SeriesDetailView item={selectedItem} onBack={() => setSelectedItem(null)} onPlayEpisode={handlePlayEpisode} autoPlay={deviceMode === "tv"} />;
       }
       return <VodDetailView item={selectedItem} onBack={() => setSelectedItem(null)} onPlay={handlePlayVod} />;
     }
