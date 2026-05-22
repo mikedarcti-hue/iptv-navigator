@@ -232,6 +232,12 @@ const Index = () => {
   };
 
   const handleSelectItem = (item: VodItem) => {
+    // TV/TV Box: start playback in fullscreen immediately when selecting a movie.
+    // For series, open detail view with autoPlay so it resumes/starts the first episode.
+    if (deviceMode === "tv" && item.type === "movie" && item.streamUrl) {
+      handlePlayVod(item);
+      return;
+    }
     setSelectedItem(item);
   };
 
