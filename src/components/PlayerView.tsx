@@ -1,5 +1,7 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { setProgress, getProgress } from "@/lib/watch-progress";
+import { classifyPlayerError } from "@/lib/player-errors";
+
 import {
   ArrowLeft,
   Loader2,
@@ -25,14 +27,8 @@ import { cn } from "@/lib/utils";
 import { useDeviceMode } from "@/pages/Index";
 import { getPreferences, applyStreamFormat } from "@/lib/app-preferences";
 import { toast } from "@/hooks/use-toast";
+import { TV_USER_AGENT, ASPECT_MODES, ASPECT_LABELS, isLiveStreamUrl, type AspectMode } from "@/lib/player-constants";
 
-
-const TV_USER_AGENT =
-  "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Mobile Safari/537.36";
-
-const ASPECT_MODES = ["contain", "cover", "fill"] as const;
-type AspectMode = typeof ASPECT_MODES[number];
-const ASPECT_LABELS: Record<AspectMode, string> = { contain: "Ajustar", cover: "Preencher", fill: "Esticar" };
 
 interface PlayerViewProps {
   channel: Channel;
@@ -59,6 +55,8 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const retryTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const fragRetryCount = useRef(0);
   const maxFragRetries = 3;
+  const lastProgressSaveRef = useRef(0);
+
 
   const [muted, setMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -90,13 +88,8 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     return `${proxyEndpoint}?${params.toString()}`;
   }, [proxyEndpoint]);
 
-  const isLiveStream = useMemo(() => {
-    if (isVod) return false;
-    const url = channel.url?.toLowerCase() ?? "";
-    if (url.includes("/movie/") || url.includes("/series/")) return false;
-    if (/\.(mp4|mkv|avi|mov|webm)(\?|$)/.test(url)) return false;
-    return true;
-  }, [channel.url, isVod]);
+  const isLiveStream = useMemo(() => isLiveStreamUrl(channel.url, isVod), [channel.url, isVod]);
+
 
   const streamCandidates = useMemo(() => {
     const fmt = getPreferences().streamFormat;
@@ -504,18 +497,29 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
 
     const handlePlaying = () => { if (!active) return; setLoading(false); setError(false); setPaused(false); setBufferLow(false); };
     const handleWaiting = () => { if (!active || error) return; setLoading(true); };
-    const handleVideoError = () => failWithFallback("O servidor bloqueou ou interrompeu o stream");
+    const handleVideoError = () => {
+      const classified = classifyPlayerError(video.error, {
+        isLive: isLiveStream,
+        isVod,
+        proxyAttempted: proxyAttemptedRef.current,
+        url: video.currentSrc || streamCandidates[attemptRef.current],
+      });
+      failWithFallback(classified.message);
+    };
     const handlePause = () => setPaused(true);
     const handleTimeUpdate = () => {
-      if (video) {
-        setCurrentTime(video.currentTime);
-        setDuration(video.duration || 0);
-        const progressKey = episodeKey || (isVod ? channel.id : null);
-        if (progressKey && video.duration && video.currentTime > 0 && Math.floor(video.currentTime) % 5 === 0) {
-          setProgress(progressKey, video.currentTime, video.duration, channel.name);
-        }
-      }
+      if (!video) return;
+      setCurrentTime(video.currentTime);
+      setDuration(video.duration || 0);
+      const progressKey = episodeKey || (isVod ? channel.id : null);
+      if (!progressKey || !video.duration || video.currentTime <= 0) return;
+      // Throttle: salva no máximo 1×/5s para evitar bater no localStorage 4×/s
+      const now = performance.now();
+      if (now - lastProgressSaveRef.current < 5000) return;
+      lastProgressSaveRef.current = now;
+      setProgress(progressKey, video.currentTime, video.duration, channel.name);
     };
+
     const handleCanPlay = () => {
       if (!isVod) return;
       const progressKey = episodeKey || channel.id;
