@@ -27,14 +27,8 @@ import { cn } from "@/lib/utils";
 import { useDeviceMode } from "@/pages/Index";
 import { getPreferences, applyStreamFormat } from "@/lib/app-preferences";
 import { toast } from "@/hooks/use-toast";
+import { TV_USER_AGENT, ASPECT_MODES, ASPECT_LABELS, isLiveStreamUrl, type AspectMode } from "@/lib/player-constants";
 
-
-const TV_USER_AGENT =
-  "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Mobile Safari/537.36";
-
-const ASPECT_MODES = ["contain", "cover", "fill"] as const;
-type AspectMode = typeof ASPECT_MODES[number];
-const ASPECT_LABELS: Record<AspectMode, string> = { contain: "Ajustar", cover: "Preencher", fill: "Esticar" };
 
 interface PlayerViewProps {
   channel: Channel;
