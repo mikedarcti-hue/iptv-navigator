@@ -1,6 +1,10 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { setProgress, getProgress } from "@/lib/watch-progress";
 import { classifyPlayerError } from "@/lib/player-errors";
+import { useWakeLock } from "@/hooks/use-wake-lock";
+import { useBufferHealth } from "@/hooks/use-buffer-health";
+import { useCastSdk } from "@/hooks/use-cast-sdk";
+
 
 import {
   ArrowLeft,
