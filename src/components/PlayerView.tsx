@@ -508,18 +508,29 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
 
     const handlePlaying = () => { if (!active) return; setLoading(false); setError(false); setPaused(false); setBufferLow(false); };
     const handleWaiting = () => { if (!active || error) return; setLoading(true); };
-    const handleVideoError = () => failWithFallback("O servidor bloqueou ou interrompeu o stream");
+    const handleVideoError = () => {
+      const classified = classifyPlayerError(video.error, {
+        isLive: isLiveStream,
+        isVod,
+        proxyAttempted: proxyAttemptedRef.current,
+        url: video.currentSrc || streamCandidates[attemptRef.current],
+      });
+      failWithFallback(classified.message);
+    };
     const handlePause = () => setPaused(true);
     const handleTimeUpdate = () => {
-      if (video) {
-        setCurrentTime(video.currentTime);
-        setDuration(video.duration || 0);
-        const progressKey = episodeKey || (isVod ? channel.id : null);
-        if (progressKey && video.duration && video.currentTime > 0 && Math.floor(video.currentTime) % 5 === 0) {
-          setProgress(progressKey, video.currentTime, video.duration, channel.name);
-        }
-      }
+      if (!video) return;
+      setCurrentTime(video.currentTime);
+      setDuration(video.duration || 0);
+      const progressKey = episodeKey || (isVod ? channel.id : null);
+      if (!progressKey || !video.duration || video.currentTime <= 0) return;
+      // Throttle: salva no máximo 1×/5s para evitar bater no localStorage 4×/s
+      const now = performance.now();
+      if (now - lastProgressSaveRef.current < 5000) return;
+      lastProgressSaveRef.current = now;
+      setProgress(progressKey, video.currentTime, video.duration, channel.name);
     };
+
     const handleCanPlay = () => {
       if (!isVod) return;
       const progressKey = episodeKey || channel.id;
