@@ -294,11 +294,15 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         }, 500);
         return;
       }
-      if (isLiveStream && proxyEndpoint && !proxyAttemptedRef.current) {
+      // Fallback automático via proxy edge function quando a origem falha.
+      // Aplica-se a LIVE e VOD — em TV Boxes/WebView a origem direta pode ser
+      // bloqueada por CORS / HTTP misto, e o proxy resolve com spoof de UA.
+      if (proxyEndpoint && !proxyAttemptedRef.current) {
         proxyAttemptedRef.current = true;
         tryViaProxy(streamCandidates[0]);
         return;
       }
+
       setLoading(false);
       setError(true);
       setErrorMessage(message);
