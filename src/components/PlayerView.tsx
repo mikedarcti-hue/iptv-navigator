@@ -417,14 +417,13 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       const isDirectVideo = /\.(mp4|mkv|avi|mov|webm)(\?|$)/.test(normalizedUrl);
       const urlIsLive = isHlsUrl || isMpegTsUrl || (!isDirectVideo && isLiveStream);
 
-      // TV mode: only route LIVE streams through the proxy (Smart TV UA spoof).
-      // VOD (movies/series) must hit the origin directly — proxying large mp4/mkv
-      // through the edge function makes playback unreliable on TV Boxes.
-      const shouldPreferProxy = isTvMode && !!proxyEndpoint && urlIsLive && !isVod;
+      // Use the SAME playback path on TV and mobile: always hit the origin
+      // directly first. The edge proxy is only used as a fallback (see
+      // failWithFallback → tryViaProxy) when the direct attempt fails for
+      // live streams. Forcing TV through the proxy was causing the
+      // "servidor bloqueou" message on TV Boxes for both live and VOD.
+      const shouldPreferProxy = false;
 
-      if (shouldPreferProxy) {
-        proxyAttemptedRef.current = true;
-      }
 
       if (isDirectVideo) { video.src = shouldPreferProxy ? proxiedUrl : url; tryAutoplay(video); return; }
 
