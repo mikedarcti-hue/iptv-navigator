@@ -347,6 +347,15 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       cleanupPlayers();
       setLoading(true);
       setError(false);
+      // VOD (mp4/mkv/etc.): usa o proxy GET (com suporte a Range) para não
+      // baixar o arquivo inteiro como blob. Essencial para Smart TV/TV Box.
+      const isDirectVideoUrl = /\.(mp4|mkv|avi|mov|webm)(\?|$)/i.test(originalUrl);
+      if (isDirectVideoUrl) {
+        video.src = buildProxyUrl(originalUrl);
+        tryAutoplay(video);
+        return;
+      }
+
       const isM3U8 = originalUrl.toLowerCase().includes(".m3u8");
       if (isM3U8 && Hls.isSupported()) {
         const hls = new Hls({
