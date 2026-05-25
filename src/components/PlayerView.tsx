@@ -1,5 +1,7 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { setProgress, getProgress } from "@/lib/watch-progress";
+import { classifyPlayerError } from "@/lib/player-errors";
+
 import {
   ArrowLeft,
   Loader2,
