@@ -161,96 +161,11 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     }
   }, [isTvMode, screenLocked, isLiveStream, resetHideTimer]);
 
-  useEffect(() => {
-    const video = videoRef.current as any;
-    // RemotePlayback (Chrome Android nativo) ou AirPlay (Safari iOS)
-    if (video && ('remote' in video || typeof video.webkitShowPlaybackTargetPicker === 'function')) {
-      setCastAvailable(true);
-    }
-    // Em modo mobile, carrega o Google Cast SDK uma vez para Chromecast
-    if (isTvMode) return;
-    if ((window as any).__castSdkLoading) return;
-    if (document.getElementById('google-cast-sdk')) return;
-    (window as any).__castSdkLoading = true;
-    (window as any).__onGCastApiAvailable = (isAvailable: boolean) => {
-      if (!isAvailable) return;
-      try {
-        const cast = (window as any).cast;
-        const chrome = (window as any).chrome;
-        cast.framework.CastContext.getInstance().setOptions({
-          receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
-          autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
-        });
-        setCastAvailable(true);
-      } catch (e) { console.warn('[CAST] init falhou', e); }
-    };
-    const s = document.createElement('script');
-    s.id = 'google-cast-sdk';
-    s.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
-    s.async = true;
-    document.head.appendChild(s);
-  }, [isTvMode]);
+  useCastSdk(videoRef, isTvMode, setCastAvailable);
+  useBufferHealth(videoRef, isLiveStream, setBufferLow);
+  useWakeLock();
 
 
-  // Monitor buffer health
-  useEffect(() => {
-    if (!isLiveStream) return;
-    const video = videoRef.current;
-    if (!video) return;
-    const checkBuffer = () => {
-      if (video.buffered.length > 0) {
-        const bufferedEnd = video.buffered.end(video.buffered.length - 1);
-        const remaining = bufferedEnd - video.currentTime;
-        setBufferLow(remaining < 1 && !video.paused);
-      }
-    };
-    const interval = setInterval(checkBuffer, 500);
-    return () => clearInterval(interval);
-  }, [isLiveStream]);
-
-  // Keep screen awake during playback (Wake Lock API for web/mobile + Capacitor KeepAwake for native)
-  useEffect(() => {
-    let wakeLock: any = null;
-    let cancelled = false;
-    let keepAwakePlugin: any = null;
-
-    const acquire = async () => {
-      // Web Wake Lock API (Android Chrome, modern browsers)
-      try {
-        if ("wakeLock" in navigator && (navigator as any).wakeLock?.request) {
-          wakeLock = await (navigator as any).wakeLock.request("screen");
-          wakeLock?.addEventListener?.("release", () => { wakeLock = null; });
-        }
-      } catch {}
-      // Capacitor KeepAwake (native Android/iOS apps)
-      try {
-        const mod: any = await import("@capacitor-community/keep-awake").catch(() => null);
-        if (mod?.KeepAwake && !cancelled) {
-          keepAwakePlugin = mod.KeepAwake;
-          await keepAwakePlugin.keepAwake();
-        }
-      } catch {}
-    };
-
-    const release = async () => {
-      try { if (wakeLock) { await wakeLock.release(); wakeLock = null; } } catch {}
-      try { if (keepAwakePlugin) { await keepAwakePlugin.allowSleep(); keepAwakePlugin = null; } } catch {}
-    };
-
-    acquire();
-
-    // Re-acquire on visibility change (browser releases wake lock when tab is hidden)
-    const onVisibility = () => {
-      if (document.visibilityState === "visible" && !cancelled) acquire();
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-
-    return () => {
-      cancelled = true;
-      document.removeEventListener("visibilitychange", onVisibility);
-      release();
-    };
-  }, []);
   // ===== STREAM LOADING (unchanged logic) =====
   useEffect(() => {
     const video = videoRef.current;
