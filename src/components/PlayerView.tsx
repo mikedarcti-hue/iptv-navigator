@@ -61,6 +61,8 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
   const retryTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const fragRetryCount = useRef(0);
   const maxFragRetries = 3;
+  const lastProgressSaveRef = useRef(0);
+
 
   const [muted, setMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
