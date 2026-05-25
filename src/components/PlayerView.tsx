@@ -294,11 +294,15 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
         }, 500);
         return;
       }
-      if (isLiveStream && proxyEndpoint && !proxyAttemptedRef.current) {
+      // Fallback automático via proxy edge function quando a origem falha.
+      // Aplica-se a LIVE e VOD — em TV Boxes/WebView a origem direta pode ser
+      // bloqueada por CORS / HTTP misto, e o proxy resolve com spoof de UA.
+      if (proxyEndpoint && !proxyAttemptedRef.current) {
         proxyAttemptedRef.current = true;
         tryViaProxy(streamCandidates[0]);
         return;
       }
+
       setLoading(false);
       setError(true);
       setErrorMessage(message);
@@ -343,6 +347,15 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
       cleanupPlayers();
       setLoading(true);
       setError(false);
+      // VOD (mp4/mkv/etc.): usa o proxy GET (com suporte a Range) para não
+      // baixar o arquivo inteiro como blob. Essencial para Smart TV/TV Box.
+      const isDirectVideoUrl = /\.(mp4|mkv|avi|mov|webm)(\?|$)/i.test(originalUrl);
+      if (isDirectVideoUrl) {
+        video.src = buildProxyUrl(originalUrl);
+        tryAutoplay(video);
+        return;
+      }
+
       const isM3U8 = originalUrl.toLowerCase().includes(".m3u8");
       if (isM3U8 && Hls.isSupported()) {
         const hls = new Hls({
