@@ -88,13 +88,8 @@ const PlayerView = forwardRef<HTMLDivElement, PlayerViewProps>(({ channel, onBac
     return `${proxyEndpoint}?${params.toString()}`;
   }, [proxyEndpoint]);
 
-  const isLiveStream = useMemo(() => {
-    if (isVod) return false;
-    const url = channel.url?.toLowerCase() ?? "";
-    if (url.includes("/movie/") || url.includes("/series/")) return false;
-    if (/\.(mp4|mkv|avi|mov|webm)(\?|$)/.test(url)) return false;
-    return true;
-  }, [channel.url, isVod]);
+  const isLiveStream = useMemo(() => isLiveStreamUrl(channel.url, isVod), [channel.url, isVod]);
+
 
   const streamCandidates = useMemo(() => {
     const fmt = getPreferences().streamFormat;
